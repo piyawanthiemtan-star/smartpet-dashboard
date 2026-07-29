@@ -296,8 +296,15 @@ function ghCfg(env) {
   return {
     repo:   env.GH_REPO   || "piyawanthiemtan-star/smartpet-dashboard",
     branch: env.GH_BRANCH || "main",
-    token:  env.GH_TOKEN  || "",
+    token:  String(env.GH_TOKEN || "").trim(),   // trim: วาง token แล้วติดช่องว่าง/ขึ้นบรรทัด = 401
   };
+}
+// บอกใบ้เวลา GitHub ตอบ 401 โดยไม่เปิดเผยค่า token (บอกแค่ความยาว + ขึ้นต้นถูกไหม)
+function ghAuthHint(env) {
+  const t = ghCfg(env).token;
+  return " · token ที่ตั้งไว้ยาว " + t.length + " ตัว"
+       + (t.startsWith("github_pat_") ? " ขึ้นต้นถูกต้อง (น่าจะหมดอายุ/สิทธิ์ไม่พอ/วางไม่ครบ)"
+                                      : " แต่ไม่ได้ขึ้นต้นด้วย github_pat_ — น่าจะวางผิดค่า");
 }
 async function gh(env, path, init) {
   const c = ghCfg(env);
@@ -332,7 +339,10 @@ async function masterApi(request, env, url) {
       const f = MASTER_FILES[k];
       const p = encodeURIComponent(f.path);
       const r = await gh(env, "/contents/" + p + "?ref=" + encodeURIComponent(c.branch));
-      if (!r.ok) { out[k] = { name: f.path, error: "อ่านไฟล์ไม่ได้ (" + r.status + ")" }; continue; }
+      if (!r.ok) {
+        out[k] = { name: f.path, error: "อ่านไฟล์ไม่ได้ (" + r.status + ")" + (r.status === 401 ? ghAuthHint(env) : "") };
+        continue;
+      }
       const j = await r.json();
       out[k] = { name: f.path, size: j.size, sha: (j.sha || "").slice(0, 7) };
       const cr = await gh(env, "/commits?path=" + p + "&per_page=1&sha=" + encodeURIComponent(c.branch));
@@ -353,7 +363,7 @@ async function masterApi(request, env, url) {
     if (!f) return jsonRes({ error: "ไม่รู้จักไฟล์นี้" }, 400);
     const r = await gh(env, "/contents/" + encodeURIComponent(f.path) + "?ref=" + encodeURIComponent(c.branch),
                        { headers: { "Accept": "application/vnd.github.raw" } });
-    if (!r.ok) return jsonRes({ error: "โหลดไฟล์จาก GitHub ไม่ได้ (" + r.status + ")" }, 502);
+    if (!r.ok) return jsonRes({ error: "โหลดไฟล์จาก GitHub ไม่ได้ (" + r.status + ")" + (r.status === 401 ? ghAuthHint(env) : "") }, 502);
     return new Response(r.body, { status: 200, headers: {
       "Content-Type": f.type,
       "Content-Disposition": 'attachment; filename="' + f.path + '"',
@@ -371,7 +381,7 @@ async function masterApi(request, env, url) {
 
     const p = encodeURIComponent(f.path);
     const cur = await gh(env, "/contents/" + p + "?ref=" + encodeURIComponent(c.branch));
-    if (!cur.ok) return jsonRes({ error: "อ่านไฟล์เดิมไม่ได้ (" + cur.status + ")" }, 502);
+    if (!cur.ok) return jsonRes({ error: "อ่านไฟล์เดิมไม่ได้ (" + cur.status + ")" + (cur.status === 401 ? ghAuthHint(env) : "") }, 502);
     const sha = (await cur.json()).sha;
 
     const note = String(body.note || "").slice(0, 120).replace(/[\r\n]+/g, " ");
