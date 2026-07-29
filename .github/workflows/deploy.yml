@@ -3,7 +3,8 @@ name: Build & Deploy Purchase Dashboard
 on:
   workflow_dispatch:          # กดรันเอง (= ปุ่ม refresh ในอนาคต)
   repository_dispatch:        # agent เครื่องหน้าร้านยิง event หลังอัปโหลด backup
-    types: [new-backup]
+                              # · master-updated = พอร์ทัลยิงหลังอัปไฟล์ Master ใหม่
+    types: [new-backup, master-updated]
   schedule:
     - cron: '0 */2 * * *'     # ทุก 2 ชม. (UTC) — สำรอง
 

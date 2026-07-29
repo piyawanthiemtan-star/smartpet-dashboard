@@ -281,6 +281,390 @@ function offNetworkPage(request, sess) {
   return new Response(SHELL("นอกเครือข่าย — LOVEPET", body), { status: 403, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" } });
 }
 
+// ===== อัปเดตไฟล์ Master (จัดซื้อ) — โหลดไฟล์ปัจจุบัน → แก้ในเครื่อง → อัปกลับ =====
+// ไฟล์เก็บใน GitHub repo (ได้ประวัติ+ย้อนกลับฟรี) · อัปเสร็จยิง repository_dispatch ให้ Actions สร้างแดชบอร์ดใหม่
+const MASTER_FILES = {
+  master:   { path: "Master_Multiplier.xlsx", kind: "xlsx", max: 8 * 1024 * 1024,
+              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  approved: { path: "Approved_NoSubUnit.csv", kind: "csv",  max: 2 * 1024 * 1024,
+              type: "text/csv; charset=utf-8" },
+};
+const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
+const jsonRes = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: JSONH });
+
+function ghCfg(env) {
+  return {
+    repo:   env.GH_REPO   || "piyawanthiemtan-star/smartpet-dashboard",
+    branch: env.GH_BRANCH || "main",
+    token:  env.GH_TOKEN  || "",
+  };
+}
+async function gh(env, path, init) {
+  const c = ghCfg(env);
+  const headers = Object.assign({
+    "Authorization": "Bearer " + c.token,
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "lovepet-portal",          // GitHub API บังคับต้องมี User-Agent
+  }, (init && init.headers) || {});
+  return fetch("https://api.github.com/repos/" + c.repo + path, Object.assign({}, init || {}, { headers }));
+}
+// ต้องล็อกอิน + อยู่ในเครือข่ายที่อนุญาต + มีสิทธิ์จัดซื้อ (owner มีอยู่แล้ว)
+async function masterGuard(request, env) {
+  const sess = await readSession(request, env);
+  if (!sess) return { err: jsonRes({ error: "ต้องเข้าสู่ระบบก่อน" }, 401) };
+  if (ipRestricted(request, env, sess)) return { err: jsonRes({ error: "อยู่นอกเครือข่ายที่อนุญาต" }, 403) };
+  if (!canSee(sess, "purchasing")) return { err: jsonRes({ error: "ไม่มีสิทธิ์อัปเดต Master" }, 403) };
+  return { sess };
+}
+
+async function masterApi(request, env, url) {
+  const g = await masterGuard(request, env);
+  if (g.err) return g.err;
+  const c = ghCfg(env);
+  if (!c.token) return jsonRes({ error: "ยังไม่ได้ตั้งค่า GH_TOKEN บน Cloudflare (ติดต่อผู้ดูแล)" }, 503);
+  const sub = url.pathname.replace("/api/master/", "");
+
+  // ข้อมูลไฟล์ปัจจุบัน (ขนาด + แก้ล่าสุดเมื่อไหร่ โดยใคร)
+  if (sub === "meta" && request.method === "GET") {
+    const out = {};
+    for (const k of Object.keys(MASTER_FILES)) {
+      const f = MASTER_FILES[k];
+      const p = encodeURIComponent(f.path);
+      const r = await gh(env, "/contents/" + p + "?ref=" + encodeURIComponent(c.branch));
+      if (!r.ok) { out[k] = { name: f.path, error: "อ่านไฟล์ไม่ได้ (" + r.status + ")" }; continue; }
+      const j = await r.json();
+      out[k] = { name: f.path, size: j.size, sha: (j.sha || "").slice(0, 7) };
+      const cr = await gh(env, "/commits?path=" + p + "&per_page=1&sha=" + encodeURIComponent(c.branch));
+      if (cr.ok) {
+        const cj = await cr.json();
+        if (Array.isArray(cj) && cj[0]) {
+          out[k].updated = cj[0].commit && cj[0].commit.committer ? cj[0].commit.committer.date : null;
+          out[k].msg = cj[0].commit ? String(cj[0].commit.message || "").split("\n")[0] : "";
+        }
+      }
+    }
+    return jsonRes(out);
+  }
+
+  // ดาวน์โหลดไฟล์ปัจจุบัน (ให้เอาไปแก้/เพิ่มแถวต่อท้าย)
+  if (sub === "file" && request.method === "GET") {
+    const f = MASTER_FILES[url.searchParams.get("f")];
+    if (!f) return jsonRes({ error: "ไม่รู้จักไฟล์นี้" }, 400);
+    const r = await gh(env, "/contents/" + encodeURIComponent(f.path) + "?ref=" + encodeURIComponent(c.branch),
+                       { headers: { "Accept": "application/vnd.github.raw" } });
+    if (!r.ok) return jsonRes({ error: "โหลดไฟล์จาก GitHub ไม่ได้ (" + r.status + ")" }, 502);
+    return new Response(r.body, { status: 200, headers: {
+      "Content-Type": f.type,
+      "Content-Disposition": 'attachment; filename="' + f.path + '"',
+      "Cache-Control": "no-store" } });
+  }
+
+  // อัปไฟล์ใหม่ทับ แล้วสั่งให้ Actions สร้างแดชบอร์ดใหม่
+  if (sub === "upload" && request.method === "POST") {
+    const body = await request.json().catch(() => ({}));
+    const f = MASTER_FILES[body.f];
+    if (!f) return jsonRes({ error: "ไม่รู้จักไฟล์นี้" }, 400);
+    const b64 = String(body.content || "").replace(/\s+/g, "");
+    if (!b64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) return jsonRes({ error: "ไฟล์ที่ส่งมาไม่ถูกต้อง" }, 400);
+    if (Math.floor(b64.length * 3 / 4) > f.max) return jsonRes({ error: "ไฟล์ใหญ่เกินกำหนด" }, 413);
+
+    const p = encodeURIComponent(f.path);
+    const cur = await gh(env, "/contents/" + p + "?ref=" + encodeURIComponent(c.branch));
+    if (!cur.ok) return jsonRes({ error: "อ่านไฟล์เดิมไม่ได้ (" + cur.status + ")" }, 502);
+    const sha = (await cur.json()).sha;
+
+    const note = String(body.note || "").slice(0, 120).replace(/[\r\n]+/g, " ");
+    const msg = "Master: อัปเดต " + f.path + " โดย " + g.sess.user + (note ? " — " + note : "");
+    const put = await gh(env, "/contents/" + p, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: msg, content: b64, sha, branch: c.branch }),
+    });
+    if (!put.ok) return jsonRes({ error: "บันทึกไฟล์ไม่สำเร็จ (" + put.status + ")" }, 502);
+    const pj = await put.json().catch(() => ({}));
+
+    const disp = await gh(env, "/dispatches", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event_type: "master-updated", client_payload: { file: f.path, by: g.sess.user } }),
+    });
+    return jsonRes({ ok: true,
+      commit: pj.commit && pj.commit.sha ? pj.commit.sha.slice(0, 7) : "",
+      dispatched: disp.status === 204 });
+  }
+
+  return jsonRes({ error: "ไม่พบ endpoint" }, 404);
+}
+
+// สคริปต์ฝั่งเบราว์เซอร์ของหน้าอัปเดต Master — ตรวจไฟล์ + เทียบกับของเดิมก่อนยืนยัน
+// (เขียนแบบต่อสตริง ไม่ใช้ backtick/${ } เพราะอยู่ใน template literal ของ worker)
+const MASTER_JS = `
+var $ = function (id) { return document.getElementById(id); };
+var PICK = null;
+var TH_MON = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+var HEAD6 = ["no.","category","pack_barcode","product_name","single_barcode","multiplier"];
+
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+  return ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" })[c]; }); }
+function S(v) { return v == null ? "" : String(v).trim(); }
+function fmtSize(n) { return n == null ? "-" : (n / 1024).toFixed(1) + " KB"; }
+function fmtTime(iso) {
+  if (!iso) return "-";
+  var p = new Intl.DateTimeFormat("en-GB", { timeZone:"Asia/Bangkok", year:"numeric", month:"numeric",
+    day:"numeric", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(new Date(iso));
+  var g = function (t) { for (var i = 0; i < p.length; i++) if (p[i].type === t) return p[i].value; return ""; };
+  return Number(g("day")) + " " + TH_MON[Number(g("month")) - 1] + " " + (Number(g("year")) + 543)
+       + " " + g("hour") + ":" + g("minute") + "น.";
+}
+function toB64(buf) {
+  var b = new Uint8Array(buf), s = "", CH = 0x8000;
+  for (var i = 0; i < b.length; i += CH) s += String.fromCharCode.apply(null, b.subarray(i, i + CH));
+  return btoa(s);
+}
+function render(html) { var s = $("sum"); s.innerHTML = html; s.style.display = "block"; }
+
+// ---------- อ่านไฟล์ ----------
+function parseMaster(buf) {
+  var out = { errors: [], rows: [] };
+  var wb;
+  try { wb = XLSX.read(new Uint8Array(buf), { type: "array" }); }
+  catch (e) { out.errors.push("เปิดไฟล์ Excel ไม่ได้ (ไฟล์เสียหรือไม่ใช่ .xlsx)"); return out; }
+  if (wb.SheetNames.indexOf("Master") < 0) {
+    out.errors.push('ไม่พบชีตชื่อ "Master" (พบ: ' + wb.SheetNames.join(", ") + ")"); return out;
+  }
+  var aoa = XLSX.utils.sheet_to_json(wb.Sheets["Master"], { header: 1, raw: true, defval: null });
+  if (!aoa.length) { out.errors.push("ชีต Master ว่าง"); return out; }
+  var head = (aoa[0] || []).slice(0, 6).map(function (v) { return S(v).toLowerCase(); });
+  for (var h = 0; h < 6; h++) if (head[h] !== HEAD6[h])
+    out.errors.push("คอลัมน์ที่ " + (h + 1) + ' ต้องเป็น "' + HEAD6[h] + '" แต่พบ "' + (head[h] || "(ว่าง)") + '"');
+  if (out.errors.length) return out;
+  var seen = {};
+  for (var i = 1; i < aoa.length; i++) {
+    var r = aoa[i] || [];
+    if (S(r[0]) === "") continue;                       // ไม่มีเลขลำดับ = แถวว่าง (generate.py ก็ข้าม)
+    var ln = i + 1, pack = S(r[2]), single = S(r[4]), m = Number(r[5]);
+    if (!pack) out.errors.push("แถว " + ln + ": ไม่มี pack_barcode");
+    if (!single) out.errors.push("แถว " + ln + ": ไม่มี single_barcode");
+    if (S(r[5]) === "" || !isFinite(m) || m <= 0)
+      out.errors.push("แถว " + ln + ": ตัวคูณไม่ถูกต้อง (" + (S(r[5]) || "ว่าง") + ")");
+    // ลังเดียวผูกได้หลายบาร์โค้ดเดี่ยว (แพ็คคละสี/คละกลิ่น) — ซ้ำจริงคือ "คู่ ลัง+เดี่ยว" ซ้ำ = นับสต๊อกซ้ำ
+    var key = pack + "|" + single;
+    if (pack && single) {
+      if (seen[key]) out.errors.push("แถว " + ln + ": ซ้ำกับแถว " + seen[key] + " (ลัง " + pack + " + เดี่ยว " + single + " คู่เดิม)");
+      else seen[key] = ln;
+    }
+    out.rows.push({ ln: ln, key: key, pack: pack, single: single, mult: isFinite(m) ? m : null, name: S(r[3]), cat: S(r[1]) });
+  }
+  if (!out.rows.length) out.errors.push("ไม่พบข้อมูลสักแถวในชีต Master");
+  return out;
+}
+function parseApproved(buf) {
+  var out = { errors: [], rows: [] };
+  var txt = new TextDecoder("utf-8").decode(new Uint8Array(buf)).replace(/^\\uFEFF/, "");
+  var lines = txt.split(/\\r?\\n/).filter(function (l) { return l.trim() !== ""; });
+  if (!lines.length) { out.errors.push("ไฟล์ว่าง"); return out; }
+  var head = lines[0].split(",").map(function (s) { return s.trim().toLowerCase(); });
+  if (head[0] !== "barcode") { out.errors.push('คอลัมน์แรกต้องชื่อ "barcode" แต่พบ "' + (head[0] || "(ว่าง)") + '"'); return out; }
+  var seen = {};
+  for (var i = 1; i < lines.length; i++) {
+    var cells = lines[i].split(","), bc = S(cells[0]), ln = i + 1;
+    if (!bc) { out.errors.push("แถว " + ln + ": ไม่มีบาร์โค้ด"); continue; }
+    if (seen[bc]) out.errors.push("แถว " + ln + ": บาร์โค้ดซ้ำกับแถว " + seen[bc] + " (" + bc + ")");
+    else seen[bc] = ln;
+    out.rows.push({ ln: ln, key: bc, pack: bc, name: S(cells[1]), cat: S(cells[2]) });
+  }
+  if (!out.rows.length) out.errors.push("ไม่พบข้อมูลสักแถว");
+  return out;
+}
+function diffRows(nw, od, isMaster) {
+  var oi = {}, ni = {}, add = [], chg = [], del = [];
+  od.forEach(function (r) { oi[r.key] = r; });
+  nw.forEach(function (r) { ni[r.key] = r; });
+  nw.forEach(function (r) {
+    var o = oi[r.key];
+    if (!o) add.push(r);
+    else if (isMaster && o.mult !== r.mult) chg.push({ n: r, o: o });
+  });
+  od.forEach(function (r) { if (!ni[r.key]) del.push(r); });
+  return { add: add, chg: chg, del: del };
+}
+
+// ---------- แสดงผล ----------
+function rowsTable(rows, isMaster) {
+  var h = '<table class="tbl"><tr><th>' + (isMaster ? "บาร์โค้ด ลัง → เดี่ยว" : "บาร์โค้ด")
+        + "</th><th>สินค้า</th>" + (isMaster ? "<th>ตัวคูณ</th>" : "") + "</tr>";
+  rows.slice(0, 10).forEach(function (r) {
+    h += '<tr><td class="mono">' + esc(r.pack) + (isMaster ? " → " + esc(r.single) : "")
+       + "</td><td>" + esc(r.name || "-") + "</td>"
+       + (isMaster ? "<td>×" + esc(r.mult) + "</td>" : "") + "</tr>";
+  });
+  h += "</table>";
+  if (rows.length > 10) h += '<p class="hint" style="margin:6px 0 0">…และอีก ' + (rows.length - 10) + " รายการ</p>";
+  return h;
+}
+function showSummary(kind, file, res, old) {
+  var isMaster = kind === "master";
+  var d = diffRows(res.rows, old.rows, isMaster);
+  var h = '<div class="box ' + (res.errors.length ? "bad" : "ok") + '">'
+        + (res.errors.length ? "❌ ไฟล์มีปัญหา " + res.errors.length + " จุด — แก้แล้วเลือกไฟล์ใหม่อีกครั้ง"
+                             : "✅ ตรวจไฟล์ผ่าน — " + esc(file.name) + " (" + fmtSize(file.size) + ")");
+  if (res.errors.length) {
+    h += "<ul>";
+    res.errors.slice(0, 15).forEach(function (e) { h += "<li>" + esc(e) + "</li>"; });
+    if (res.errors.length > 15) h += "<li>…และอีก " + (res.errors.length - 15) + " จุด</li>";
+    h += "</ul>";
+  }
+  h += "</div>";
+  if (res.errors.length) { render(h); return; }
+
+  h += '<div class="stats"><div class="st"><b>' + res.rows.length + "</b><span>แถวทั้งหมด</span></div>"
+     + '<div class="st add"><b>+' + d.add.length + "</b><span>เพิ่มใหม่</span></div>"
+     + (isMaster ? '<div class="st chg"><b>' + d.chg.length + "</b><span>แก้ตัวคูณ</span></div>" : "")
+     + '<div class="st del"><b>' + (d.del.length ? "-" + d.del.length : "0") + "</b><span>หายไป</span></div></div>";
+
+  var lim = Math.max(5, Math.round(old.rows.length * 0.05));
+  if (d.del.length > lim)
+    h += '<div class="box warn">⚠️ มีรายการหายไป ' + d.del.length + " รายการ (เดิม " + old.rows.length
+       + " แถว) — เช็คก่อนว่าอัปไฟล์ถูกตัวไหม ปกติควรเพิ่มต่อท้าย ไม่ใช่ลบของเดิม</div>";
+  if (!d.add.length && !d.chg.length && !d.del.length)
+    h += '<div class="box warn">ไฟล์นี้เหมือนของเดิมทุกอย่าง — อัปไปก็ไม่มีอะไรเปลี่ยน</div>';
+  if (d.add.length) h += "<h3 style=\\"font-size:15px;color:var(--navy);margin:14px 0 0\\">เพิ่มใหม่</h3>" + rowsTable(d.add, isMaster);
+  if (d.chg.length) {
+    h += "<h3 style=\\"font-size:15px;color:var(--navy);margin:14px 0 0\\">แก้ไข</h3>"
+       + '<table class="tbl"><tr><th>บาร์โค้ด</th><th>สินค้า</th><th>เดิม</th><th>ใหม่</th></tr>';
+    d.chg.slice(0, 10).forEach(function (c) {
+      h += '<tr><td class="mono">' + esc(c.n.pack) + "</td><td>" + esc(c.n.name || "-") + "</td><td>×"
+         + esc(c.o.mult) + "</td><td><b>×" + esc(c.n.mult) + "</b></td></tr>";
+    });
+    h += "</table>";
+    if (d.chg.length > 10) h += '<p class="hint" style="margin:6px 0 0">…และอีก ' + (d.chg.length - 10) + " รายการ</p>";
+  }
+  if (d.del.length) h += "<h3 style=\\"font-size:15px;color:var(--navy);margin:14px 0 0\\">หายไปจากไฟล์ใหม่</h3>" + rowsTable(d.del, isMaster);
+
+  h += '<div style="margin-top:18px"><input id="note" placeholder="บันทึกย่อ (ไม่ใส่ก็ได้) เช่น เพิ่มสินค้าใหม่ 12 ตัว" '
+     + 'style="width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px">'
+     + '<br><button class="btn gold" id="go">✅ ยืนยันใช้ไฟล์นี้</button>'
+     + '<span class="hint" id="st2" style="margin-left:12px"></span></div>';
+  render(h);
+  $("go").addEventListener("click", doUpload);
+}
+function doUpload() {
+  var b = $("go"); b.disabled = true;
+  $("st2").textContent = "กำลังส่ง…";
+  fetch("/api/master/upload", { method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ f: PICK.kind, content: PICK.b64, note: ($("note").value || "") })
+  }).then(function (r) { return r.json(); }).then(function (j) {
+    if (j.error) throw new Error(j.error);
+    render('<div class="box ok">✅ บันทึกไฟล์ใหม่แล้ว' + (j.commit ? " (เวอร์ชัน " + esc(j.commit) + ")" : "")
+      + "<br>" + (j.dispatched ? "ระบบกำลังคำนวณแดชบอร์ดใหม่ ใช้เวลาประมาณ 2-3 นาที"
+                               : "⚠️ บันทึกไฟล์แล้ว แต่สั่งคำนวณใหม่ไม่สำเร็จ — แดชบอร์ดจะอัปเดตในรอบถัดไป")
+      + '<br>เช็คได้ที่หัวแดชบอร์ด บรรทัด "ข้อมูล ณ" ว่าเวลาเปลี่ยนหรือยัง</div>'
+      + '<a class="btn" href="/purchasing">ไปที่แดชบอร์ดจัดซื้อ</a>');
+  }).catch(function (e) {
+    b.disabled = false;
+    $("st2").innerHTML = '<span style="color:#b3261e">' + esc(e.message || "ส่งไม่สำเร็จ") + "</span>";
+  });
+}
+
+// ---------- เริ่มทำงาน ----------
+fetch("/api/master/meta", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (m) {
+  ["master", "approved"].forEach(function (k) {
+    var d = m[k] || {};
+    $("m-" + k).textContent = d.error ? d.error : (fmtSize(d.size) + " · แก้ล่าสุด " + fmtTime(d.updated));
+  });
+}).catch(function () {
+  $("m-master").textContent = "โหลดข้อมูลไม่ได้";
+  $("m-approved").textContent = "โหลดข้อมูลไม่ได้";
+});
+
+$("fin").addEventListener("change", function (e) {
+  var f = e.target.files && e.target.files[0];
+  if (!f) return;
+  var nm = f.name.toLowerCase();
+  var kind = /\\.xlsx$/.test(nm) ? "master" : (/\\.csv$/.test(nm) ? "approved" : null);
+  if (!kind) { render('<div class="box bad">รองรับเฉพาะไฟล์ .xlsx (Master) และ .csv (Approved)</div>'); return; }
+  render('<div class="box warn">⏳ กำลังตรวจไฟล์…</div>');
+  var buf;
+  f.arrayBuffer().then(function (b) {
+    buf = b;
+    return fetch("/api/master/file?f=" + kind, { credentials: "same-origin" });
+  }).then(function (r) {
+    if (!r.ok) throw new Error("โหลดไฟล์ปัจจุบันมาเทียบไม่ได้");
+    return r.arrayBuffer();
+  }).then(function (oldBuf) {
+    var res = kind === "master" ? parseMaster(buf) : parseApproved(buf);
+    var old = kind === "master" ? parseMaster(oldBuf) : parseApproved(oldBuf);
+    PICK = { kind: kind, b64: toB64(buf) };
+    showSummary(kind, f, res, old);
+  }).catch(function (err) {
+    render('<div class="box bad">' + esc(err.message || "อ่านไฟล์ไม่สำเร็จ") + "</div>");
+  });
+});
+`;
+
+const MASTER_EXTRA_CSS = `.card{background:var(--surface);border:1px solid var(--gold-soft);border-radius:var(--r-card);padding:22px 22px 24px;box-shadow:var(--sh-sm);margin-bottom:20px}
+.card h2{font-size:18px;color:var(--navy);margin-bottom:4px}
+.card .hint{font-size:13.5px;color:var(--muted);margin:0 0 16px}
+.frow{display:flex;gap:14px;flex-wrap:wrap}
+.fbox{flex:1 1 300px;border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;background:#fff}
+.fbox .fn{font-weight:700;color:var(--navy);font-size:14.5px;word-break:break-all}
+.fbox .fm{font-size:12.5px;color:var(--muted);margin-top:3px;min-height:19px}
+.btn{display:inline-block;margin-top:10px;background:var(--navy);color:#fff;border:0;border-radius:var(--r-md);padding:9px 18px;font-family:var(--f-body);font-weight:600;font-size:14px;text-decoration:none;cursor:pointer}
+.btn:hover{background:var(--navy-l)}
+.btn.gold{background:var(--gold-d)} .btn.gold:hover{background:var(--gold)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.drop{border:2px dashed var(--gold-soft);border-radius:var(--r-md);padding:26px;text-align:center;background:#fff}
+.drop input{display:block;margin:10px auto 0}
+.sum{margin-top:16px;display:none}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.st{background:#fff;border:1px solid var(--border);border-radius:var(--r-md);padding:9px 15px;min-width:96px}
+.st b{display:block;font-size:20px;color:var(--navy);font-family:var(--f-head)}
+.st span{font-size:12px;color:var(--muted)}
+.st.add b{color:#2f7d4f} .st.chg b{color:var(--gold-d)} .st.del b{color:#b3261e}
+.box{border-radius:var(--r-md);padding:12px 15px;font-size:13.5px;margin-bottom:12px;line-height:1.6}
+.box.ok{background:#e8f3ec;color:#1f5c39} .box.warn{background:#fdf3e0;color:#8a5a12} .box.bad{background:#fbe6e4;color:#9b2018}
+.box ul{margin:6px 0 0;padding-left:20px} .box li{margin:2px 0}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.tbl th,.tbl td{border-bottom:1px solid var(--border);padding:6px 8px;text-align:left}
+.tbl th{color:var(--muted);font-weight:600}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.back{color:var(--gold-d);font-weight:600;text-decoration:none;font-size:14px}`;
+
+function masterPage(sess) {
+  const brs = sessBranches(sess);
+  const brLabel = brs.includes("*") ? "ทุกสาขา" : brs.map(branchName).join(" · ");
+  const nav = `<div class="nav"><img class="logo" src="/logo.png" alt="LOVEPET GLOBALPLUS">
+<div class="co">บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด<small>LOVE PET GLOBAL PLUS CO., LTD.</small></div>
+<div class="who"><span class="chip"><b>${esc(sess.user)}</b> · ${esc(brLabel)}</span>
+<a class="out" href="/logout">ออกจากระบบ</a></div></div>`;
+
+  const main = `<style>${MASTER_EXTRA_CSS}</style>
+<a class="back" href="/purchasing">← กลับแดชบอร์ดจัดซื้อ</a>
+<h1 class="hi" style="margin-top:10px">อัปเดตข้อมูล <span class="em">Master</span></h1>
+<p class="lead">โหลดไฟล์ปัจจุบันลงมา → เพิ่ม/แก้แถวต่อท้ายในโปรแกรม Excel → อัปกลับขึ้นมา ระบบจะคำนวณแดชบอร์ดใหม่ให้เอง</p>
+
+<div class="card"><h2>1) โหลดไฟล์ปัจจุบัน</h2>
+<p class="hint">ใช้ไฟล์นี้เป็นตัวตั้งต้นเสมอ อย่าสร้างไฟล์ใหม่เอง (คอลัมน์จะไม่ตรง)</p>
+<div class="frow">
+  <div class="fbox"><div class="fn">Master_Multiplier.xlsx</div><div class="fm" id="m-master">กำลังโหลด…</div>
+    <a class="btn" href="/api/master/file?f=master">⬇ ดาวน์โหลด</a></div>
+  <div class="fbox"><div class="fn">Approved_NoSubUnit.csv</div><div class="fm" id="m-approved">กำลังโหลด…</div>
+    <a class="btn" href="/api/master/file?f=approved">⬇ ดาวน์โหลด</a></div>
+</div></div>
+
+<div class="card"><h2>2) อัปไฟล์ที่แก้แล้วกลับขึ้นมา</h2>
+<p class="hint">ระบบจะตรวจไฟล์ให้ก่อน แล้วสรุปว่าเปลี่ยนอะไรบ้าง — ต้องกดยืนยันเองถึงจะใช้จริง</p>
+<div class="drop">📄 เลือกไฟล์ <b>.xlsx</b> (Master) หรือ <b>.csv</b> (Approved)
+<input type="file" id="fin" accept=".xlsx,.csv"></div>
+<div class="sum" id="sum"></div>
+</div>
+<p class="foot">© บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด · Loei Smart Group</p>
+<script src="/vendor/xlsx.full.min.js"></script>
+<script>${MASTER_JS}</script>`;
+  return new Response(HOME_SHELL("อัปเดต Master — LOVEPET", nav, main),
+    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -368,6 +752,19 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       }
       return loginPage(env, { next: safeNext(url.searchParams.get("next")) });
     }
+
+    // ไลบรารีอ่าน .xlsx ฝั่งเบราว์เซอร์ (ใช้เฉพาะหน้าอัปเดต Master)
+    if (path === "/vendor/xlsx.full.min.js") return env.ASSETS.fetch(request);
+
+    // อัปเดตไฟล์ Master — หน้าเว็บ + API (ต้องมีสิทธิ์จัดซื้อ)
+    if (path === "/purchasing/master") {
+      const sess = await readSession(request, env);
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/purchasing/master") } });
+      if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);
+      if (!canSee(sess, "purchasing")) return forbidden("purchasing", sess);
+      return masterPage(sess);
+    }
+    if (path.startsWith("/api/master/")) return masterApi(request, env, url);
 
     // แผนกงาน = ต้องล็อกอิน + มีสิทธิ์
     const section = path.replace(/^\/+/, "").replace(/\.html$/, "").split("/")[0];
