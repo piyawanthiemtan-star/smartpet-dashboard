@@ -50,6 +50,9 @@ h1,h2,h3,h4{font-family:var(--f-head);margin:0}
 .grid{grid-template-columns:1fr}.sec h2{font-size:28px}.vision .v{font-size:22px}.values{font-size:14px;gap:10px}}
 .tile{position:relative}
 .tile.soon{opacity:.72;pointer-events:none}
+/* โลโก้กลม: ครอบเป็นวงกลมเพื่อตัดมุมขาวของไฟล์ต้นฉบับออก */
+.tile .ic.logo{width:84px;height:84px;border-radius:50%;background:#fff;border:1px solid var(--gold-soft);overflow:hidden;padding:0;box-shadow:var(--sh-sm)}
+.tile .ic.logo img{width:100%;height:100%;object-fit:cover;display:block}
 .tile .badge{position:absolute;top:16px;right:16px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;background:#f2ece1;color:var(--gold-d)}
 .tile .badge.on{background:#e8f3ec;color:#2f7d4f}
 .tile .go{font-family:var(--f-body);font-size:13px;color:var(--gold-d);margin-top:12px;font-weight:600}
@@ -72,16 +75,17 @@ h1,h2,h3,h4{font-family:var(--f-head);margin:0}
    ใส่ url ในเครื่องหมายคำพูด เช่น url:"https://..."
    ปล่อยว่าง "" = การ์ดจะขึ้นป้าย "กำลังพัฒนา" และกดไม่ได้ (ไม่ต้องแก้อย่างอื่นเลย) */
 var SERVICES = [
-  { ic:"🏨", t:"LOEI CAT HOTEL", d:"โรงแรมแมวเมืองเลย · ที่พักสำหรับน้องแมว", url:"" },
-  { ic:"🛒", t:"สินค้าและบริการ (ค้าปลีก)", d:"อาหาร ขนม ของใช้สัตว์เลี้ยง ครบทุกแบรนด์", url:"" },
-  { ic:"📦", t:"สินค้าและบริการ (ค้าส่ง)", d:"ราคาส่งสำหรับร้านค้า · ต้องเข้าสู่ระบบก่อนดูราคา", url:"" }
+  { img:"/svc-hotel.png",     t:"LOEI CAT HOTEL", d:"โรงแรมแมวเมืองเลย · ที่พักสำหรับน้องแมว", url:"" },
+  { img:"/svc-retail.png",    t:"สินค้าและบริการ (ค้าปลีก)", d:"เลยสมาร์ทเพ็ทช็อป สาขาสามแยกทองคำ · อาหาร ขนม ของใช้สัตว์เลี้ยง", url:"" },
+  { img:"/svc-wholesale.png", t:"สินค้าและบริการ (ค้าส่ง)", d:"โกดังเลยสมาร์ทเพ็ทช็อป สาขาบ้านนาหนอง · ราคาส่งสำหรับร้านค้า ต้องเข้าสู่ระบบ", url:"" }
 ];
 document.getElementById("svc-grid").innerHTML = SERVICES.map(function (s) {
   var live = !!s.url;
   return '<a class="tile' + (live ? '' : ' soon') + '" href="' + (live ? s.url : '#') + '"'
        + (live ? ' target="_blank" rel="noopener"' : '')
        + '><span class="badge' + (live ? ' on' : '') + '">' + (live ? 'เปิดให้บริการ' : 'กำลังพัฒนา') + '</span>'
-       + '<div class="ic">' + s.ic + '</div><div class="t">' + s.t + '</div>'
+       + '<div class="ic logo"><img src="' + s.img + '" alt="' + s.t + '" loading="lazy"></div>'
+       + '<div class="t">' + s.t + '</div>'
        + '<div class="d">' + s.d + '</div>'
        + '<div class="go">' + (live ? 'เข้าดู →' : 'เปิดเร็วๆ นี้') + '</div></a>';
 }).join("");
