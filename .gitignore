@@ -1,0 +1,13 @@
+# generated / local
+output/
+__pycache__/
+*.pyc
+.wrangler/
+node_modules/
+
+# local worker backups (ไม่เอาเข้า repo)
+cloud/dist/_worker.js.bak-*
+
+# POS backup db — ส่งผ่าน Release asset ไม่ commit เข้า repo
+backup/
+*.db

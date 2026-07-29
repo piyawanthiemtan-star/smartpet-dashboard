@@ -1,0 +1,16 @@
+{
+  "name": "LOVEPET GLOBALPLUS — แดชบอร์ดจัดซื้อ ML3",
+  "short_name": "LovePet ML3",
+  "description": "แดชบอร์ดจัดซื้อ คลัง ML3 — บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด",
+  "lang": "th",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#7a4526",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

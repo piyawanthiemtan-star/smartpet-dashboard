@@ -1,0 +1,55 @@
+name: Build & Deploy Purchase Dashboard
+
+on:
+  workflow_dispatch:          # กดรันเอง (= ปุ่ม refresh ในอนาคต)
+  repository_dispatch:        # agent เครื่องหน้าร้านยิง event หลังอัปโหลด backup
+    types: [new-backup]
+  schedule:
+    - cron: '0 */2 * * *'     # ทุก 2 ชม. (UTC) — สำรอง
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-dashboard
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Download latest POS backup (Release asset "latest")
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p backup
+          gh release download latest --repo "$GITHUB_REPOSITORY" --pattern "*.db" --dir backup --clobber
+
+      - name: Generate dashboard
+        env:
+          SMARTPET_BACKUP_DIR: backup
+          SMARTPET_MASTER: Master_Multiplier.xlsx
+          SMARTPET_APPROVED: Approved_NoSubUnit.csv
+          SMARTPET_OUT: output
+          PYTHONIOENCODING: utf-8
+        run: python generate.py
+
+      - name: Copy dashboard into site
+        run: cp output/dashboard_latest.html cloud/dist/purchasing.html
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@4 pages deploy cloud/dist --project-name lovepetglobalplus --branch main --commit-dirty=true

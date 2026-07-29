@@ -1,0 +1,5 @@
+# Cloudflare Pages — โปรเจกต์แดชบอร์ด LOVEPET GLOBALPLUS
+# ชื่อโปรเจกต์ = subdomain  →  https://lovepetglobalplus.pages.dev
+name = "lovepetglobalplus"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-07-24"
