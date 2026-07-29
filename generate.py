@@ -31,6 +31,15 @@ BRANCH_NAMES = {"ML3": "โกดังเลยสมาร์ทเพ็ท�
 def log(*a): print("·", *a)
 def n(x): return str(x).strip() if x is not None else ""
 
+# เวลาไทยแบบ fixed offset (+07:00 ไม่มี DST) — ใช้ offset ตรงๆ จะได้ไม่ต้องพึ่ง tzdata
+# สำคัญ: GitHub runner เป็น UTC ถ้าใช้ now() เฉยๆ วันที่/เวลาจะเพี้ยนไป 7 ชม.
+BKK = datetime.timezone(datetime.timedelta(hours=7))
+TH_MON = ("ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค.")
+
+def th_stamp(dt):
+    """29 ก.ค. 2569 15:42น. — วันที่ไทย + เวลา 24 ชม."""
+    return f"{dt.day} {TH_MON[dt.month-1]} {dt.year+543} {dt:%H:%M}น."
+
 def is_ml3(db_path):
     """Identify the ML3 warehouse DB by its data (it ships transfers out from 7FEF),
     not by filename — filenames are inconsistent across branches."""
@@ -76,7 +85,8 @@ def load_approved():
     return appr
 
 def compute(db_path, children, msingles, childpacks, approved):
-    TODAY = datetime.date.today()
+    NOW = datetime.datetime.now(BKK)
+    TODAY = NOW.date()
     def dcut(d): return (TODAY - datetime.timedelta(days=d)).isoformat()
     c30, c90, c365 = dcut(30), dcut(90), dcut(365)
     # same calendar month, last year (seasonality)
@@ -226,7 +236,8 @@ def compute(db_path, children, msingles, childpacks, approved):
     clr_strong=sum(1 for x in clearance if x["tier"]=="strong")
     clr_hold=sum(1 for x in clearance if x["tier"]=="hold")
     clearance.sort(key=lambda x:-x["cashLocked"]); clearance=clearance[:150]
-    S={"generated":TODAY.isoformat(),"skuBase":len(bases),"mapped":mapped,"need7":need7,"need14":need14,
+    S={"generated":TODAY.isoformat(),"generatedAt":NOW.isoformat(timespec="minutes"),
+       "generatedTh":th_stamp(NOW),"skuBase":len(bases),"mapped":mapped,"need7":need7,"need14":need14,
        "val7":round(val7),"val14":round(val14),
        "abcA":sum(1 for v in abc.values() if v=="A"),"abcB":sum(1 for v in abc.values() if v=="B"),
        "abcC":sum(1 for v in abc.values() if v=="C"),"dead":dead,"deadval":round(deadval),

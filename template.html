@@ -271,7 +271,7 @@ const $=id=>document.getElementById(id);
 const baht0=n=>"฿"+Math.round(n).toLocaleString("en-US");
 const kbaht=n=>n>=1e6?"฿"+(n/1e6).toFixed(2)+"M":n>=1e3?"฿"+(n/1e3).toFixed(0)+"K":"฿"+Math.round(n);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-$("gdate").textContent=new Date(D.s.generated).toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"numeric"});
+$("gdate").textContent=D.s.generatedTh||new Date(D.s.generated).toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"numeric"});
 if(D.s.branch) $("branch-badge").textContent=D.s.branch;
 if(D.s.branchName) $("branch-name").textContent=D.s.branchName;
 let lead=7,fq="",fcat="",fabc="",fst="order",shown=0,PAGE=120,filtered=[];
