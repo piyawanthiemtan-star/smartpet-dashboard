@@ -48,15 +48,44 @@ h1,h2,h3,h4{font-family:var(--f-head);margin:0}
 .hero{min-height:auto}.hero h1{font-size:36px}.hero p{font-size:17px;line-height:1.8}
 .hero:before{background:linear-gradient(180deg,rgba(245,236,227,.95) 0%,rgba(245,236,227,.78) 100%)}
 .grid{grid-template-columns:1fr}.sec h2{font-size:28px}.vision .v{font-size:22px}.values{font-size:14px;gap:10px}}
+.tile{position:relative}
+.tile.soon{opacity:.72;pointer-events:none}
+.tile .badge{position:absolute;top:16px;right:16px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;background:#f2ece1;color:var(--gold-d)}
+.tile .badge.on{background:#e8f3ec;color:#2f7d4f}
+.tile .go{font-family:var(--f-body);font-size:13px;color:var(--gold-d);margin-top:12px;font-weight:600}
 .nav .logo{height:34px;background:#fff;border-radius:8px;padding:4px 9px;display:block}.ovl{display:none}.ovl:target{display:flex;position:fixed;inset:0;background:rgba(0,26,55,.9);z-index:99;align-items:center;justify-content:center;padding:20px}.ovl .bg{position:absolute;inset:0}.ovl img{position:relative;max-width:100%;max-height:92vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.55)}.ovl .x{position:absolute;top:14px;right:24px;color:#fff;font-size:38px;font-weight:300;text-decoration:none;z-index:2;line-height:1}</style></head><body>
 <div class="nav"><img class="logo" src="/logo.png" alt="LOVEPET GLOBALPLUS"><div class="co">บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด<small>LOVE PET GLOBAL PLUS CO., LTD.</small></div><a class="btn" href="/login">เข้าสู่ระบบ</a></div>
 <section class="hero"><div class="in"><div class="txt">
 <div class="eyebrow">Pet Solution Center</div>
 <h1>ครบ จบ<br><b>เรื่องสัตว์เลี้ยง</b></h1>
 <p>สัตว์เลี้ยงแต่ละตัวต้องการมากกว่าอาหาร<br>เราคือที่ปรึกษาเรื่องอาหารสัตว์<br>ที่ให้ข้อมูลด้านโภชนาการ<br>พร้อมจัดส่งรวดเร็วทั่วจังหวัดเลย</p>
-<div class="btns"><a class="cta" href="#story">รู้จักเรา</a><a class="cta" href="#">สินค้าและบริการ</a></div>
+<div class="btns"><a class="cta" href="#story">รู้จักเรา</a><a class="cta" href="#services">สินค้าและบริการ</a></div>
 </div></div></section>
 <div class="values"><span>ครบครัน ทั้งปลีกและส่ง</span><i class="dot">&#9679;</i><span>จัดส่งรวดเร็วทั่วจังหวัดเลย</span><i class="dot">&#9679;</i><span>ใส่ใจ จริงใจ เหมือนคนรู้จัก</span><i class="dot">&#9679;</i><span>เชี่ยวชาญ น่าเชื่อถือ</span></div>
+<section class="sec" id="services" style="padding-top:34px">
+<h2>สินค้าและบริการ</h2>
+<p class="sub">เลือกหมวดที่ต้องการ</p>
+<div class="grid" id="svc-grid"></div>
+</section>
+<script>
+/* ===== แก้ตรงนี้จุดเดียวเมื่อลิงก์พร้อม =====
+   ใส่ url ในเครื่องหมายคำพูด เช่น url:"https://..."
+   ปล่อยว่าง "" = การ์ดจะขึ้นป้าย "กำลังพัฒนา" และกดไม่ได้ (ไม่ต้องแก้อย่างอื่นเลย) */
+var SERVICES = [
+  { ic:"🏨", t:"LOEI CAT HOTEL", d:"โรงแรมแมวเมืองเลย · ที่พักสำหรับน้องแมว", url:"" },
+  { ic:"🛒", t:"สินค้าและบริการ (ค้าปลีก)", d:"อาหาร ขนม ของใช้สัตว์เลี้ยง ครบทุกแบรนด์", url:"" },
+  { ic:"📦", t:"สินค้าและบริการ (ค้าส่ง)", d:"ราคาส่งสำหรับร้านค้า · ต้องเข้าสู่ระบบก่อนดูราคา", url:"" }
+];
+document.getElementById("svc-grid").innerHTML = SERVICES.map(function (s) {
+  var live = !!s.url;
+  return '<a class="tile' + (live ? '' : ' soon') + '" href="' + (live ? s.url : '#') + '"'
+       + (live ? ' target="_blank" rel="noopener"' : '')
+       + '><span class="badge' + (live ? ' on' : '') + '">' + (live ? 'เปิดให้บริการ' : 'กำลังพัฒนา') + '</span>'
+       + '<div class="ic">' + s.ic + '</div><div class="t">' + s.t + '</div>'
+       + '<div class="d">' + s.d + '</div>'
+       + '<div class="go">' + (live ? 'เข้าดู →' : 'เปิดเร็วๆ นี้') + '</div></a>';
+}).join("");
+</script>
 <div class="vision"><div class="k">VISION &middot; วิสัยทัศน์</div><div class="v">&ldquo;เป็นศูนย์รวมสินค้าสัตว์เลี้ยง<br>ที่ครองใจลูกค้าอันดับหนึ่งในจังหวัดเลย&rdquo;</div></div>
 <div class="foot">&copy; บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด &middot; <b>Loei Smart Group</b> &middot; Pet Solution Center</div>
 <div id="story" class="ovl"><a class="bg" href="#"></a><a class="x" href="#">&times;</a><img src="/brandstory.jpg" alt="Brand Story"></div></body></html>
