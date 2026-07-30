@@ -4,7 +4,18 @@
 .back:hover{color:var(--gold)}
 .page h1{color:var(--navy);font-size:34px;font-weight:700;margin:0 0 6px}
 .page .lead{color:var(--muted);font-size:15.5px;margin:0}
-@media(max-width:820px){.page{padding:28px 22px 12px}.page h1{font-size:26px}}
+/* การ์ดเป็น div ไม่ใช่ลิงก์ทั้งใบ เพราะปุ่ม LINE ต้องกดได้แม้หน้าสินค้ายังไม่เปิด */
+.tile{cursor:default}
+.tile.soon{opacity:1}
+.acts{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+.act{display:inline-flex;align-items:center;gap:7px;font-family:var(--f-body);font-weight:600;font-size:14px;
+     padding:10px 16px;border-radius:var(--r-md);text-decoration:none;transition:.15s}
+.act.line{background:#06C755;color:#fff}
+.act.line:hover{background:#05a948}
+.act.shop{background:var(--navy);color:#fff;border:1.5px solid var(--gold)}
+.act.shop:hover{background:var(--navy-l)}
+.act.wait{background:#f2ece1;color:var(--gold-d);cursor:default}
+@media(max-width:820px){.page{padding:28px 22px 12px}.page h1{font-size:26px}.act{flex:1 1 100%;justify-content:center}}
 </style></head><body>
 <div class="nav"><a href="/"><img class="logo" src="/logo.png" alt="LOVEPET GLOBALPLUS"></a><div class="co">บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด<small>LOVE PET GLOBAL PLUS CO., LTD.</small></div><a class="btn" href="/login">เข้าสู่ระบบ</a></div>
 <div class="page">
@@ -18,19 +29,28 @@
    ใส่ url ในเครื่องหมายคำพูด เช่น url:"https://..."
    ปล่อยว่าง "" = การ์ดจะขึ้นป้าย "กำลังพัฒนา" และกดไม่ได้ (ไม่ต้องแก้อย่างอื่นเลย) */
 var SERVICES = [
-  { img:"/svc-hotel.png",     t:"LOEI CAT HOTEL", d:"โรงแรมแมวเมืองเลย · ที่พักสำหรับน้องแมว", url:"" },
-  { img:"/svc-retail.png",    t:"สินค้าและบริการ (ค้าปลีก)", d:"เลยสมาร์ทเพ็ทช็อป สาขาสามแยกทองคำ · อาหาร ขนม ของใช้สัตว์เลี้ยง", url:"" },
-  { img:"/svc-wholesale.png", t:"สินค้าและบริการ (ค้าส่ง)", d:"โกดังเลยสมาร์ทเพ็ทช็อป สาขาบ้านนาหนอง · ราคาส่งสำหรับร้านค้า ต้องเข้าสู่ระบบ", url:"" }
+  { img:"/svc-hotel.png",     t:"LOEI CAT HOTEL", d:"โรงแรมแมวเมืองเลย · ที่พักสำหรับน้องแมว",
+    line:"@002lffmk", url:"" },
+  { img:"/svc-retail.png",    t:"สินค้าและบริการ (ค้าปลีก)", d:"เลยสมาร์ทเพ็ทช็อป สาขาสามแยกทองคำ · อาหาร ขนม ของใช้สัตว์เลี้ยง",
+    line:"@408yyvjv", url:"" },
+  { img:"/svc-wholesale.png", t:"สินค้าและบริการ (ค้าส่ง)", d:"โกดังเลยสมาร์ทเพ็ทช็อป สาขาบ้านนาหนอง · ราคาส่งสำหรับร้านค้า ต้องเข้าสู่ระบบ",
+    line:"@453klnfu", url:"" }
 ];
 document.getElementById("svc-grid").innerHTML = SERVICES.map(function (s) {
-  var live = !!s.url;
-  return '<a class="tile' + (live ? '' : ' soon') + '" href="' + (live ? s.url : '#') + '"'
-       + (live ? ' target="_blank" rel="noopener"' : '')
-       + '><span class="badge' + (live ? ' on' : '') + '">' + (live ? 'เปิดให้บริการ' : 'กำลังพัฒนา') + '</span>'
+  var live = !!s.url, acts = "";
+  if (live) acts += '<a class="act shop" href="' + s.url + '" target="_blank" rel="noopener">เข้าดูสินค้า →</a>';
+  else      acts += '<span class="act wait">เปิดเร็วๆ นี้</span>';
+  if (s.line) {
+    // ลิงก์เพิ่มเพื่อน/แชท LINE OA — @ ต้องเข้ารหัสเป็น %40 ไม่งั้นบางเบราว์เซอร์ตัดทิ้ง
+    var lineUrl = "https://line.me/R/ti/p/" + encodeURIComponent(s.line);
+    acts += '<a class="act line" href="' + lineUrl + '" target="_blank" rel="noopener">💬 แชท LINE</a>';
+  }
+  return '<div class="tile' + (live ? '' : ' soon') + '">'
+       + '<span class="badge' + (live ? ' on' : '') + '">' + (live ? 'เปิดให้บริการ' : 'กำลังพัฒนา') + '</span>'
        + '<div class="ic logo"><img src="' + s.img + '" alt="' + s.t + '"></div>'
        + '<div class="t">' + s.t + '</div>'
        + '<div class="d">' + s.d + '</div>'
-       + '<div class="go">' + (live ? 'เข้าดู →' : 'เปิดเร็วๆ นี้') + '</div></a>';
+       + '<div class="acts">' + acts + '</div></div>';
 }).join("");
 </script>
 <div class="foot">&copy; บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด &middot; <b>Loei Smart Group</b> &middot; Pet Solution Center</div>
