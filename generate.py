@@ -95,6 +95,13 @@ def compute(db_path, children, msingles, childpacks, approved):
     smly_hi = m2.isoformat()
 
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True); con.row_factory = sqlite3.Row
+    # เวลาของ "ข้อมูล" จริง = บิลใบล่าสุดใน backup — คนละอย่างกับเวลาที่รันสคริปต์
+    # ถ้า agent ไม่ได้ส่งไฟล์ใหม่ขึ้นมา ตัวนี้จะค้าง ทำให้รู้ทันทีว่าข้อมูลเก่า
+    last_bill = con.execute("SELECT MAX([Create]) FROM Orders WHERE IsDelete=0").fetchone()[0]
+    data_dt = None
+    if last_bill:
+        try: data_dt = datetime.datetime.fromisoformat(str(last_bill).replace("T", " ")).replace(tzinfo=BKK)
+        except ValueError: pass
     units = {r[0]: r[1] for r in con.execute("SELECT Id,Name FROM ProductUnit")}
     cats  = {r[0]: r[1] for r in con.execute("SELECT Id,Name FROM ProductCategory")}
     prod = {r["Barcode"]: {"name": r["Name"], "cat": cats.get(r["Category"], "-"),
@@ -237,7 +244,10 @@ def compute(db_path, children, msingles, childpacks, approved):
     clr_hold=sum(1 for x in clearance if x["tier"]=="hold")
     clearance.sort(key=lambda x:-x["cashLocked"]); clearance=clearance[:150]
     S={"generated":TODAY.isoformat(),"generatedAt":NOW.isoformat(timespec="minutes"),
-       "generatedTh":th_stamp(NOW),"skuBase":len(bases),"mapped":mapped,"need7":need7,"need14":need14,
+       "generatedTh":th_stamp(NOW),
+       "dataAtTh":th_stamp(data_dt) if data_dt else "",
+       "dataAgeMin":int((NOW-data_dt).total_seconds()//60) if data_dt else None,
+       "skuBase":len(bases),"mapped":mapped,"need7":need7,"need14":need14,
        "val7":round(val7),"val14":round(val14),
        "abcA":sum(1 for v in abc.values() if v=="A"),"abcB":sum(1 for v in abc.values() if v=="B"),
        "abcC":sum(1 for v in abc.values() if v=="C"),"dead":dead,"deadval":round(deadval),
