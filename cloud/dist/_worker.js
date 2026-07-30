@@ -685,8 +685,9 @@ export default {
         || /\.(woff2?|jpe?g|png|svg|css|ico)$/i.test(path)) return env.ASSETS.fetch(request);
     if (path === "/" || path === "/index.html") return env.ASSETS.fetch(request);
     // หน้าสินค้าและบริการ — สาธารณะ ลูกค้าเข้าดูได้เลย ไม่ต้องล็อกอิน
-    if (path === "/services" || path === "/services.html")
-      return env.ASSETS.fetch(new Request(new URL("/services.html", url), request));
+    // ส่ง request เดิมให้ ASSETS ตรงๆ (Pages เสิร์ฟ services.html ให้เอง)
+    // ห้ามขอ "/services.html" เพราะ Pages จะ 308 กลับมาที่ /services → วนลูป
+    if (path === "/services" || path === "/services.html") return env.ASSETS.fetch(request);
 
     if (path === "/logout")
       return new Response(null, { status: 302, headers: { "Location": "/", "Set-Cookie": `${COOKIE}=; Path=/; Max-Age=0` } });
