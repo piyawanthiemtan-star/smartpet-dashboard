@@ -40,6 +40,36 @@ def th_stamp(dt):
     """29 ก.ค. 2569 15:42น. — วันที่ไทย + เวลา 24 ชม."""
     return f"{dt.day} {TH_MON[dt.month-1]} {dt.year+543} {dt:%H:%M}น."
 
+# แต่ละสาขาโอนของ "ออกจากตัวเอง" ด้วย GUID ของตัวเอง → ใช้ prefix ที่พบมากสุดในช่อง Source
+# เป็นตัวบอกว่าไฟล์ backup นี้เป็นของสาขาไหน (ชื่อไฟล์เชื่อไม่ได้ ตั้งกันคนละแบบทุกเครื่อง)
+BRANCH_BY_SOURCE = {"7FEF": "ML3", "ECE7": "ML2"}
+SOURCE_BY_BRANCH = {v: k for k, v in BRANCH_BY_SOURCE.items()}
+
+def detect_branch(db_path):
+    """คืนรหัสสาขาของไฟล์ backup (ML3/ML2) หรือ None ถ้าไม่รู้จัก"""
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        row = con.execute("""SELECT UPPER(SUBSTR(Source,1,4)) p, COUNT(*) c FROM ProductTransfer
+                             WHERE IsDelete=0 AND Source IS NOT NULL AND Source<>''
+                             GROUP BY p ORDER BY c DESC LIMIT 1""").fetchone()
+        con.close()
+        return BRANCH_BY_SOURCE.get(row[0]) if row and row[0] else None
+    except Exception:
+        return None
+
+def backups_by_branch():
+    """ไฟล์ backup ใหม่สุดของแต่ละสาขา -> {"ML3": path, "ML2": path}"""
+    dbs = glob.glob(os.path.join(BACKUP_DIR, "*.db"))
+    if not dbs: sys.exit(f"ไม่พบไฟล์ backup (.db) ใน {BACKUP_DIR}")
+    found, skipped = {}, []
+    for d in sorted(dbs, key=os.path.getmtime):     # เก่า -> ใหม่ ตัวหลังทับตัวหน้า
+        b = detect_branch(d)
+        if b: found[b] = d
+        else: skipped.append(os.path.basename(d))
+    if skipped: log("ข้ามไฟล์ที่ระบุสาขาไม่ได้:", ", ".join(skipped))
+    if not found: sys.exit("ไม่พบ backup ที่ระบุสาขาได้เลย")
+    return found
+
 def is_ml3(db_path):
     """Identify the ML3 warehouse DB by its data (it ships transfers out from 7FEF),
     not by filename — filenames are inconsistent across branches."""
@@ -84,7 +114,7 @@ def load_approved():
             appr.add(n(row.get("barcode")))
     return appr
 
-def compute(db_path, children, msingles, childpacks, approved):
+def compute(db_path, children, msingles, childpacks, approved, branch="ML3"):
     NOW = datetime.datetime.now(BKK)
     TODAY = NOW.date()
     def dcut(d): return (TODAY - datetime.timedelta(days=d)).isoformat()
@@ -123,15 +153,19 @@ def compute(db_path, children, msingles, childpacks, approved):
         if dt>=c90:  s[90]+=q
         if dt>=c30:  s[30]+=q
         if smly_lo<=dt<smly_hi: s["m"]+=q
-    for bc, q, dt in con.execute("""SELECT i.Barcode,i.TransferQty,t.[Create] FROM ProductTransferItem i
-            JOIN ProductTransfer t ON i.TransferId=t.Id
-            WHERE i.IsDelete=0 AND t.IsDelete=0 AND t.Source LIKE ? AND t.[Create]>=?""", (ML3_SOURCE, dcut(400))):
-        if bc not in prod or not dt: continue
-        s = trans[bc]; q = q or 0; seen(bc, dt)
-        if dt>=c365: s[365]+=q
-        if dt>=c90:  s[90]+=q
-        if dt>=c30:  s[30]+=q
-        if smly_lo<=dt<smly_hi: s["m"]+=q
+    # โกดัง (ML3): ของที่โอนออกไปสาขา = ความต้องการจริง ต้องนับรวมเป็นดีมานด์
+    # ร้าน (ML2): ของที่โอนออก = ส่งคืนโกดัง ไม่ใช่ดีมานด์ → ไม่นับ ไม่งั้นตัวเลข "ต้องเติม" จะพอง
+    if branch == "ML3":
+        for bc, q, dt in con.execute("""SELECT i.Barcode,i.TransferQty,t.[Create] FROM ProductTransferItem i
+                JOIN ProductTransfer t ON i.TransferId=t.Id
+                WHERE i.IsDelete=0 AND t.IsDelete=0 AND t.Source LIKE ? AND t.[Create]>=?""",
+                (SOURCE_BY_BRANCH[branch] + "%", dcut(400))):
+            if bc not in prod or not dt: continue
+            s = trans[bc]; q = q or 0; seen(bc, dt)
+            if dt>=c365: s[365]+=q
+            if dt>=c90:  s[90]+=q
+            if dt>=c30:  s[30]+=q
+            if smly_lo<=dt<smly_hi: s["m"]+=q
     # monthly sales trend (13 months) + total stock value for the executive view
     trend = []
     for r in con.execute("""SELECT substr(o.[Create],1,7) m,
@@ -256,25 +290,48 @@ def compute(db_path, children, msingles, childpacks, approved):
        "marginA":marginABC["A"],"marginB":marginABC["B"],"marginC":marginABC["C"],
        "clrCount":clr_count,"clrCash":clr_cash,"clrRecover":clr_recover,
        "clrStrong":clr_strong,"clrHold":clr_hold,
-       "branch":"ML3","branchName":BRANCH_NAMES.get("ML3","")}
+       "branch":branch,"branchName":BRANCH_NAMES.get(branch,branch)}
     return {"s":S,"items":items,"unmapped":unmapped,"trend":trend,"clearance":clearance}
 
 def main():
-    db = latest_backup()
-    log("ใช้ backup:", os.path.basename(db))
+    found = backups_by_branch()
     children, msingles, childpacks = load_master()
     approved = load_approved()
     log(f"master singles: {len(msingles)} | approved no-sub-unit: {len(approved)}")
-    data = compute(db, children, msingles, childpacks, approved)
-    log("สรุป:", json.dumps(data["s"], ensure_ascii=False))
-    tpl = open(TEMPLATE, encoding="utf-8").read()
-    html = tpl.replace("__DATA__", json.dumps(data, ensure_ascii=False))
     os.makedirs(OUT_DIR, exist_ok=True)
-    stamp = data["s"]["generated"]
-    for name in (f"dashboard_{stamp}.html", "dashboard_latest.html"):
-        with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
-            f.write(html)
-    log("เขียนแดชบอร์ด ->", os.path.join(OUT_DIR, "dashboard_latest.html"))
+    tpl = open(TEMPLATE, encoding="utf-8").read()
+
+    # สาขาไหนไม่มีไฟล์ก็ข้ามไป — ไม่ให้สาขาเดียวพังทำให้ทั้งระบบล้ม
+    failed, done = [], []
+    for branch in ("ML3", "ML2"):
+        db = found.get(branch)
+        if not db:
+            log(f"[{branch}] ไม่มี backup — ข้าม")
+            continue
+        log(f"[{branch}] ใช้ backup:", os.path.basename(db))
+        try:
+            data = compute(db, children, msingles, childpacks, approved, branch=branch)
+        except Exception as e:
+            # สาขาหนึ่งพังต้องไม่ทำให้ทั้ง build ล้ม ไม่งั้นอีกสาขาที่ปกติจะไม่ได้อัปเดตไปด้วย
+            log(f"[{branch}] ❌ ประมวลผลไม่สำเร็จ ข้ามสาขานี้: {type(e).__name__}: {e}")
+            failed.append(branch)
+            continue
+        log(f"[{branch}] สรุป:", json.dumps(data["s"], ensure_ascii=False))
+        html = tpl.replace("__DATA__", json.dumps(data, ensure_ascii=False))
+        names = [f"dashboard_{branch}.html"]
+        if branch == "ML3":     # ชื่อเดิม — ของเก่า (daily_run STEP 6) ยังใช้ได้เหมือนเดิม
+            names += [f"dashboard_{data['s']['generated']}.html", "dashboard_latest.html"]
+        for name in names:
+            with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
+                f.write(html)
+        log(f"[{branch}] เขียนแดชบอร์ด ->", os.path.join(OUT_DIR, names[0]))
+        done.append(branch)
+
+    if not done:
+        sys.exit("สร้างแดชบอร์ดไม่สำเร็จสักสาขา")          # ให้ workflow ฟ้องแดง จะได้รู้ตัว
+    if failed:
+        log("⚠️ สาขาที่ข้ามไป:", ", ".join(failed))
+    log("เสร็จ:", ", ".join(done))
 
 if __name__ == "__main__":
     main()
