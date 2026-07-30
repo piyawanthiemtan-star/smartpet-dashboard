@@ -684,6 +684,9 @@ export default {
     if (path.startsWith("/icon-") || path === "/manifest.webmanifest"
         || /\.(woff2?|jpe?g|png|svg|css|ico)$/i.test(path)) return env.ASSETS.fetch(request);
     if (path === "/" || path === "/index.html") return env.ASSETS.fetch(request);
+    // หน้าสินค้าและบริการ — สาธารณะ ลูกค้าเข้าดูได้เลย ไม่ต้องล็อกอิน
+    if (path === "/services" || path === "/services.html")
+      return env.ASSETS.fetch(new Request(new URL("/services.html", url), request));
 
     if (path === "/logout")
       return new Response(null, { status: 302, headers: { "Location": "/", "Set-Cookie": `${COOKIE}=; Path=/; Max-Age=0` } });
