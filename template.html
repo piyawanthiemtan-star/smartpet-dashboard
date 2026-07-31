@@ -172,7 +172,7 @@
       <span class="cap" id="branchcap" style="display:none">สาขา</span>
       <div class="seg" id="branchseg" style="display:none"><button data-b="ML3">ML3 โกดัง</button><button data-b="ML2">ML2 ร้าน</button></div>
       <span class="cap">ระยะรอของ (Lead time)</span>
-      <div class="seg" id="leadseg"><button data-l="7" class="on">Supplier 5–7 วัน</button><button data-l="14">Supplier 7–14 วัน</button></div>
+      <div class="seg" id="leadseg"><button data-l="7" class="on">Supplier 5–7 วัน</button><button data-l="14">Supplier 7–14 วัน</button><button data-l="30">Supplier 14–30 วัน</button></div>
     </div>
   </header>
   <script>/* ปุ่มหน้าหลัก/อัปเดต Master: แสดงเฉพาะตอนเปิดผ่านเว็บ (พอร์ทัล) ไม่ใช่เปิดเป็นไฟล์ local */
@@ -312,7 +312,10 @@ let incoming=JSON.parse(localStorage.getItem(IKEY)||"{}");    // bc -> singles a
 // ---- ordering helpers (native unit = ลัง if cm else base) ----
 const hasCase=x=>!!x.cm;
 const inc=x=> Math.max(0, +incoming[x.bc]||0);
-const netSingles=x=> Math.max(0,(lead===7?x.o7:x.o14)-inc(x));   // needed singles minus incoming
+/* ระยะรอของ 3 ช่วง: 7 / 14 / 30 วัน — เลือกช่องข้อมูลตามปุ่มที่กดอยู่ */
+const oFor=x=> lead===7?x.o7:(lead===14?x.o14:x.o30);
+const ropFor=x=> lead===7?x.rop7:(lead===14?x.rop14:x.rop30);
+const netSingles=x=> Math.max(0,oFor(x)-inc(x));   // needed singles minus incoming
 const suggestNative=x=> hasCase(x) ? Math.ceil(netSingles(x)/x.cm) : netSingles(x);
 const qKey=x=>x.bc+"@"+lead+(hasCase(x)?"c":"u");
 const effNative=x=> (qKey(x) in qedits)? qedits[qKey(x)] : suggestNative(x);
@@ -391,7 +394,7 @@ function rowHTML(x,i){
     <td class="tnum">${x.stock.toLocaleString()}</td>
     <td class="tnum">${x.demand.toFixed(2)}</td>
     <td class="tnum ${x.dleft!=null&&x.dleft<7?'':'muted'}">${dleft}</td>
-    <td class="tnum dim">${(lead===7?x.rop7:x.rop14).toLocaleString()}</td>
+    <td class="tnum dim">${ropFor(x).toLocaleString()}</td>
     <td><input class="qin inc tnum" type="number" min="0" value="${inc(x)||''}" placeholder="0" data-inc="${esc(x.bc)}"></td>
     <td>${qcell}</td>
     <td class="tnum">${o>0?baht0(orderValue(x)):'<span class="dim">–</span>'}</td>
@@ -431,7 +434,7 @@ $("export").addEventListener("click",()=>{
   const need=D.items.filter(x=>effNative(x)>0).sort((a,b)=>orderValue(b)-orderValue(a));
   let csv="﻿หมวด,บาร์โค้ดสั่ง,ชื่อสินค้า,ABC,คงเหลือ,จุดสั่งซื้อ,สั่ง(ลัง),สั่ง(ชิ้น),ต้นทุน/ชิ้น,มูลค่า\n";
   need.forEach(x=>{const o=effNative(x),singles=orderSingles(x),ob=hasCase(x)?x.cbc:x.bc;
-    csv+=`"${x.cat}",${ob},"${x.name}",${x.abc},${x.stock},${lead===7?x.rop7:x.rop14},${hasCase(x)?o:""},${singles},${x.cost},${orderValue(x)}\n`;});
+    csv+=`"${x.cat}",${ob},"${x.name}",${x.abc},${x.stock},${ropFor(x)},${hasCase(x)?o:""},${singles},${x.cost},${orderValue(x)}\n`;});
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   a.download="ใบสั่งซื้อ_ML3_"+D.s.generated+"_lead"+lead+".csv";a.click();
 });

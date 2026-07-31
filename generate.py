@@ -218,15 +218,17 @@ def compute(db_path, children, msingles, childpacks, approved, branch="ML3"):
     for r,bc in rev:
         cum += r; abc[bc] = "A" if cum/tot<=0.8 else ("B" if cum/tot<=0.95 else "C")
 
-    items=[]; need7=need14=val7=val14=dead=deadval=over=mapped=0
+    items=[]; need7=need14=need30=val7=val14=val30=dead=deadval=over=mapped=0
     gpRev={"A":0.0,"B":0.0,"C":0.0}; gpCogs={"A":0.0,"B":0.0,"C":0.0}; clearance=[]
     for bc in bases:
         p=prod[bc]; d=p["_d"]; stock=p["_stock"]
-        rop7,o7=scen(d,7,stock); rop14,o14=scen(d,14,stock)
+        # ระยะรอของ 3 ช่วง ตามประเภทซัพพลายเออร์ (5-7 / 7-14 / 14-30 วัน)
+        rop7,o7=scen(d,7,stock); rop14,o14=scen(d,14,stock); rop30,o30s=scen(d,30,stock)
         case=p["_case"]; cm=case[1] if case else None; cbc=case[0] if case else None
         cunit=prod[cbc]["unit"] if (cbc and cbc in prod) else None
         ca7=math.ceil(o7/cm) if (cm and o7>0) else None
         ca14=math.ceil(o14/cm) if (cm and o14>0) else None
+        ca30=math.ceil(o30s/cm) if (cm and o30s>0) else None
         dleft=(stock/d) if d>0 else None
         is_dead=(p["_o365"]==0 and stock>0 and p["cost"]*stock>=200)
         is_over=(dleft is not None and dleft>120 and p["cost"]*stock>=500)
@@ -254,6 +256,7 @@ def compute(db_path, children, msingles, childpacks, approved, branch="ML3"):
         if case: mapped+=1
         if o7>0: need7+=1; val7+=o7*p["cost"]
         if o14>0: need14+=1; val14+=o14*p["cost"]
+        if o30s>0: need30+=1; val30+=o30s*p["cost"]
         if is_dead: dead+=1; deadval+=p["cost"]*stock
         if is_over: over+=1
         if o14>0 or is_dead or is_over or p["_o365"]>0:
@@ -261,8 +264,9 @@ def compute(db_path, children, msingles, childpacks, approved, branch="ML3"):
                  ("warning" if o14>0 else ("dead" if is_dead else ("over" if is_over else "ok")))
             items.append({"bc":bc,"name":p["name"],"cat":p["cat"],"abc":abc.get(bc,"C"),"unit":p["unit"],
                 "stock":round(stock,1),"demand":round(d,2),"dleft":round(dleft) if dleft is not None else None,
-                "rop7":rop7,"rop14":rop14,"o7":o7,"o14":o14,"cm":cm,"cunit":cunit,"cbc":cbc,
-                "ca7":ca7,"ca14":ca14,"cost":round(p["cost"],2),"seas":p["_seas"],
+                "rop7":rop7,"rop14":rop14,"rop30":rop30,"o7":o7,"o14":o14,"o30":o30s,
+                "cm":cm,"cunit":cunit,"cbc":cbc,
+                "ca7":ca7,"ca14":ca14,"ca30":ca30,"cost":round(p["cost"],2),"seas":p["_seas"],
                 "stockval":round(stock*p["cost"]),"status":st,"nm":1 if nm else 0})
     rank={"critical":0,"warning":1,"dead":2,"over":3,"ok":4}
     items.sort(key=lambda x:(rank[x["status"]], -(x["o14"]*x["cost"]), -x["stockval"]))
@@ -281,8 +285,8 @@ def compute(db_path, children, msingles, childpacks, approved, branch="ML3"):
        "generatedTh":th_stamp(NOW),
        "dataAtTh":th_stamp(data_dt) if data_dt else "",
        "dataAgeMin":int((NOW-data_dt).total_seconds()//60) if data_dt else None,
-       "skuBase":len(bases),"mapped":mapped,"need7":need7,"need14":need14,
-       "val7":round(val7),"val14":round(val14),
+       "skuBase":len(bases),"mapped":mapped,"need7":need7,"need14":need14,"need30":need30,
+       "val7":round(val7),"val14":round(val14),"val30":round(val30),
        "abcA":sum(1 for v in abc.values() if v=="A"),"abcB":sum(1 for v in abc.values() if v=="B"),
        "abcC":sum(1 for v in abc.values() if v=="C"),"dead":dead,"deadval":round(deadval),
        "over":over,"unmapped":len(unmapped),"rows":len(items),"stockTotal":round(stock_total),
