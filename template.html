@@ -169,6 +169,8 @@
     <div class="leadtog">
       <a class="homebtn" id="homebtn" href="/home" title="กลับหน้าหลัก">🏠 หน้าหลัก</a>
       <a class="homebtn" id="masterbtn" href="/purchasing/master" title="โหลด/อัปไฟล์ Master ตัวคูณ">⬆️ อัปเดต Master</a>
+      <span class="cap" id="branchcap" style="display:none">สาขา</span>
+      <div class="seg" id="branchseg" style="display:none"><button data-b="ML3">ML3 โกดัง</button><button data-b="ML2">ML2 ร้าน</button></div>
       <span class="cap">ระยะรอของ (Lead time)</span>
       <div class="seg" id="leadseg"><button data-l="7" class="on">Supplier 5–7 วัน</button><button data-l="14">Supplier 7–14 วัน</button></div>
     </div>
@@ -286,8 +288,22 @@ if(D.s.dataAtTh){
     $("bdate").title="ข้อมูลไม่ได้อัปเดตมานาน — เช็คว่าเครื่องหน้าร้านส่งไฟล์ backup ขึ้นมาหรือยัง";
   }
 }
-if(D.s.branch) $("branch-badge").textContent=D.s.branch;
+if(D.s.branch){ $("branch-badge").textContent=D.s.branch;
+  document.title=document.title.replace(/ML\d/,D.s.branch);   // ชื่อแท็บให้ตรงสาขา เปิดหลายแท็บจะได้ไม่สับสน
+}
 if(D.s.branchName) $("branch-name").textContent=D.s.branchName;
+/* ปุ่มสลับสาขา — โชว์เฉพาะตอนเปิดผ่านพอร์ทัล (เปิดเป็นไฟล์ local จะสลับไม่ได้อยู่แล้ว)
+   แต่ละสาขาเป็นคนละไฟล์ ไม่ยัดข้อมูล 2 สาขาไว้ด้วยกัน เพราะไฟล์ใหญ่ ~1.8MB ต่อสาขา */
+if(location.protocol==='http:'||location.protocol==='https:'){
+  $("branchcap").style.display=""; $("branchseg").style.display="";
+  document.querySelectorAll("#branchseg button").forEach(function(b){
+    if(b.dataset.b===D.s.branch) b.classList.add("on");
+    b.addEventListener("click",function(){
+      if(b.dataset.b===D.s.branch) return;
+      location.href="/purchasing?b="+b.dataset.b;
+    });
+  });
+}
 let lead=7,fq="",fcat="",fabc="",fst="order",shown=0,PAGE=120,filtered=[];
 let qedits=JSON.parse(localStorage.getItem(QKEY)||"{}");      // key bc@lead -> native qty
 let mapEdits=JSON.parse(localStorage.getItem(KEY)||"{}");     // single bc -> {pack, mult}

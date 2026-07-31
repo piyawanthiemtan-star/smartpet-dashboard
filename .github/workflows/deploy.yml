@@ -47,7 +47,15 @@ jobs:
         run: python generate.py
 
       - name: Copy dashboard into site
-        run: cp output/dashboard_latest.html cloud/dist/purchasing.html
+        run: |
+          cp output/dashboard_latest.html cloud/dist/purchasing.html
+          # ML2 มีเฉพาะเมื่อ agent ML2 ส่ง backup ขึ้นมา — ไม่มีก็ข้าม ไม่ให้ build ล้ม
+          if [ -f output/dashboard_ML2.html ]; then
+            cp output/dashboard_ML2.html cloud/dist/purchasing-ml2.html
+            echo "รวมแดชบอร์ด ML2 เข้าเว็บแล้ว"
+          else
+            echo "ไม่มีแดชบอร์ด ML2 รอบนี้ — ข้าม"
+          fi
 
       - name: Deploy to Cloudflare Pages
         env:

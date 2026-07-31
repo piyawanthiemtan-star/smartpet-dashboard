@@ -787,7 +787,14 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/" + section) } });
       if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);
       if (!canSee(sess, section)) return forbidden(section, sess);
-      if (section === "purchasing" || section === "warehouse") return env.ASSETS.fetch(request); // → purchasing.html / warehouse.html (LSMG Logistic)
+      // จัดซื้อ: สลับสาขาด้วย ?b=ML2 (คนละไฟล์ ไม่ยัดข้อมูล 2 สาขาไว้ด้วยกัน ไฟล์จะใหญ่เกินไป)
+      // ขอ ASSETS ด้วย "clean URL" เสมอ — ถ้าขอ .html ตรงๆ Pages จะ 308 กลับมาแล้ววนลูป
+      if (section === "purchasing") {
+        const b = (url.searchParams.get("b") || "").toUpperCase();
+        if (b === "ML2") return env.ASSETS.fetch(new Request(new URL("/purchasing-ml2", url), request));
+        return env.ASSETS.fetch(request);
+      }
+      if (section === "warehouse") return env.ASSETS.fetch(request); // → warehouse.html (LSMG Logistic)
       return placeholder(section, sess); // marketing/sales/accounting รอเฟส B
     }
 
