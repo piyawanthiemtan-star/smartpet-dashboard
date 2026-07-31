@@ -49,11 +49,12 @@
   h1{margin:0;font-size:21px;font-weight:750;letter-spacing:-.015em}
   .branch-badge{font-size:13px;color:var(--accent);font-weight:700;background:var(--accent-soft);padding:2px 10px;border-radius:8px;vertical-align:middle;white-space:nowrap}
   .sub{color:var(--ink-3);font-size:12.5px;margin-top:3px}
-  .leadtog{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+  /* แถวควบคุมแถวเดียว: สาขา · ระยะรอของ · อัปเดต Master · หน้าหลัก (จอแคบค่อยตัดบรรทัด) */
+  .leadtog{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
   .leadtog .cap{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
   .homebtn{display:none;align-items:center;gap:6px;font-size:13px;font-weight:700;text-decoration:none;
-    color:var(--accent-ink);background:var(--accent);padding:8px 14px;border-radius:10px;box-shadow:var(--shadow);
-    border:1px solid transparent;cursor:pointer;margin-bottom:2px}
+    color:var(--accent-ink);background:var(--accent);padding:9px 14px;border-radius:10px;box-shadow:var(--shadow);
+    border:1px solid transparent;cursor:pointer}
   .homebtn:hover{filter:brightness(1.08)}
   .seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:2px}
   .seg button{border:0;background:transparent;color:var(--ink-2);font:inherit;font-size:13px;font-weight:650;padding:8px 15px;border-radius:8px;cursor:pointer}
@@ -147,7 +148,9 @@
   @media(max-width:640px){
     .wrap{padding:14px 10px 96px}
     h1{font-size:17px} .logo{width:38px;height:38px;font-size:19px}
-    .leadtog{align-items:flex-start;width:100%}
+    .leadtog{width:100%;justify-content:flex-start}
+    .leadtog .seg{flex:1 1 100%}
+    .leadtog .seg button{flex:1;padding:8px 6px;font-size:12px}
     .kpis{grid-template-columns:repeat(2,1fr);gap:9px}
     .kpi{padding:12px 12px} .kpi .val{font-size:20px}
     .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -166,13 +169,12 @@
       <div><h1>บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด <span class="branch-badge" id="branch-badge">ML3</span></h1>
         <div class="sub"><b id="branch-name">–</b> · แดชบอร์ดจัดซื้อ · สั่งเป็น <b>ลังเต็ม</b> ตาม Master · ข้อมูล ณ <b id="gdate">–</b><span id="freshwrap" style="display:none"> · บิลล่าสุด <b id="bdate">–</b></span></div></div>
     </div>
+    <!-- แถวควบคุมเดียว เรียงซ้าย→ขวา: สาขา · ระยะรอของ · อัปเดต Master · หน้าหลัก -->
     <div class="leadtog">
-      <a class="homebtn" id="homebtn" href="/home" title="กลับหน้าหลัก">🏠 หน้าหลัก</a>
-      <a class="homebtn" id="masterbtn" href="/purchasing/master" title="โหลด/อัปไฟล์ Master ตัวคูณ">⬆️ อัปเดต Master</a>
-      <span class="cap" id="branchcap" style="display:none">สาขา</span>
       <div class="seg" id="branchseg" style="display:none"><button data-b="ML3">ML3 โกดัง</button><button data-b="ML2">ML2 ร้าน</button></div>
-      <span class="cap">ระยะรอของ (Lead time)</span>
       <div class="seg" id="leadseg"><button data-l="7" class="on">Supplier 5–7 วัน</button><button data-l="14">Supplier 7–14 วัน</button><button data-l="30">Supplier 14–30 วัน</button></div>
+      <a class="homebtn" id="masterbtn" href="/purchasing/master" title="โหลด/อัปไฟล์ Master ตัวคูณ">⬆️ อัปเดต Master</a>
+      <a class="homebtn" id="homebtn" href="/home" title="กลับหน้าหลัก">🏠 หน้าหลัก</a>
     </div>
   </header>
   <script>/* ปุ่มหน้าหลัก/อัปเดต Master: แสดงเฉพาะตอนเปิดผ่านเว็บ (พอร์ทัล) ไม่ใช่เปิดเป็นไฟล์ local */
@@ -295,7 +297,7 @@ if(D.s.branchName) $("branch-name").textContent=D.s.branchName;
 /* ปุ่มสลับสาขา — โชว์เฉพาะตอนเปิดผ่านพอร์ทัล (เปิดเป็นไฟล์ local จะสลับไม่ได้อยู่แล้ว)
    แต่ละสาขาเป็นคนละไฟล์ ไม่ยัดข้อมูล 2 สาขาไว้ด้วยกัน เพราะไฟล์ใหญ่ ~1.8MB ต่อสาขา */
 if(location.protocol==='http:'||location.protocol==='https:'){
-  $("branchcap").style.display=""; $("branchseg").style.display="";
+  $("branchseg").style.display="";
   document.querySelectorAll("#branchseg button").forEach(function(b){
     if(b.dataset.b===D.s.branch) b.classList.add("on");
     b.addEventListener("click",function(){
