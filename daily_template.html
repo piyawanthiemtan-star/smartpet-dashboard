@@ -1,0 +1,215 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>สรุปรายวัน · LOVEPET</title>
+<meta name="theme-color" content="#0C223A">
+<link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" type="image/png" href="/icon-192.png">
+<style>
+:root{--navy:#0C223A;--navy-l:#173D61;--gold:#C89535;--gold-l:#E4B65C;--gold-d:#9D681E;
+ --cream:#F5ECE3;--surface:#fff;--ink:#25282C;--ink-2:#5b6472;--ink-3:#8a93a0;--line:#e3e7ec;
+ --ok:#2f7d4f;--bad:#c0362c;--warn:#b45309;--sh:0 2px 10px rgba(12,34,58,.08)}
+*{box-sizing:border-box}html,body{margin:0}
+body{font-family:'Inter','Noto Sans Thai',-apple-system,'Segoe UI',sans-serif;background:var(--cream);color:var(--ink);font-size:15px;line-height:1.55}
+.top{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:9}
+.top h1{margin:0;font-size:17px;font-weight:700}
+.top .sub{font-size:11.5px;color:#cbbfa0;margin-top:1px}
+.top a{color:#cbbfa0;text-decoration:none}
+.datebar{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+.datebar input{font:inherit;font-size:14px;padding:6px 9px;border-radius:9px;border:1px solid #3d5772;background:#fff;color:var(--ink)}
+.datebar button{font:inherit;font-size:13px;font-weight:700;padding:6px 12px;border-radius:9px;border:1px solid #3d5772;background:var(--navy-l);color:#fff;cursor:pointer}
+.datebar button:hover{background:#22506f}
+.wrap{max-width:1000px;margin:0 auto;padding:14px 12px 44px}
+h2{font-size:13.5px;color:var(--ink-2);margin:20px 0 8px;font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px;box-shadow:var(--sh)}
+.card.total{background:var(--navy);color:#fff;border-color:var(--navy)}
+.card .bn{font-size:12px;color:var(--ink-3);font-weight:700}
+.card.total .bn{color:var(--gold-l)}
+.card .rev{font-size:23px;font-weight:800;margin:2px 0 1px;font-variant-numeric:tabular-nums}
+.card .meta{font-size:11.5px;color:var(--ink-3)}
+.card.total .meta{color:#b9c6d6}
+.chg{font-size:11.5px;font-weight:700;margin-top:4px}
+.chg.up{color:var(--ok)} .chg.down{color:var(--bad)} .chg.flat{color:var(--ink-3)}
+.card.total .chg.up{color:#7ee2a8} .card.total .chg.down{color:#ff9c92}
+.alert{border-radius:12px;padding:11px 13px;font-size:13px;margin:10px 0;line-height:1.6}
+.alert.bad{background:#fbe6e4;border:1px solid #f0b5ad;color:#8f231a}
+.alert.ok{background:#e8f3ec;border:1px solid #b6ddc4;color:#1f5c39}
+.alert.warn{background:#fdf3e0;border:1px solid #f0d9a8;color:#8a5a12}
+.ch{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.chip{background:#eef1f5;border-radius:9px;padding:5px 10px;font-size:12.5px}
+.chip b{font-variant-numeric:tabular-nums}
+.chip.cash{background:#e8f3ec} .chip.tr{background:#e9eff7}
+.shift{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--sh);margin-bottom:9px}
+.shift .h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px}
+.shift .h b{font-size:14px}
+.shift .h .who{color:var(--ink-3)}
+.shift .h .open{margin-left:auto;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+table.slip{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+table.slip td{padding:3px 0}
+table.slip td.v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+table.slip tr.sep td{border-top:1px dashed var(--line);padding-top:6px}
+table.slip tr.diff td{font-weight:800}
+table.slip tr.diff.bad td{color:var(--bad)} table.slip tr.diff.ok td{color:var(--ok)}
+.bars{width:100%;border-collapse:collapse;font-size:12.5px}
+.bars td{padding:3px 4px;white-space:nowrap}
+.bars td.d{color:var(--ink-3);width:56px;font-variant-numeric:tabular-nums;cursor:pointer}
+.bars tr:hover td.d{color:var(--navy);font-weight:700;text-decoration:underline}
+.bars td.b{width:100%}
+.bars td.n{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2);width:72px}
+.b{height:8px;border-radius:4px;display:block;min-width:2px}
+.b.ml3{background:var(--navy)} .b.ml2{background:var(--gold)}
+tr.sel td{background:#f4f7fb}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px;box-shadow:var(--sh);overflow-x:auto}
+.legend{font-size:11.5px;color:var(--ink-3);margin:6px 2px 0}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px}
+.foot{color:var(--ink-3);text-align:center;font-size:11.5px;margin-top:24px}
+.cnav{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.cnav a,.cnav span{font-size:12.5px;font-weight:700;text-decoration:none;padding:6px 13px;border-radius:9px;border:1px solid #3d5772}
+.cnav a{color:#cbbfa0;background:transparent}
+.cnav a:hover{background:var(--navy-l);color:#fff}
+.cnav span.on{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+@media(max-width:640px){.cards{grid-template-columns:1fr}}
+</style></head><body>
+<div class="top">
+  <h1>คอนโซลผู้บริหาร</h1>
+  <div class="cnav"><a href="/executive">👔 ภาพรวมผู้บริหาร</a><span class="on">🧾 ปิดบิลสิ้นวัน</span></div>
+  <div class="sub"><span id="gen">–</span> · <a href="/home">← หน้าหลัก</a></div>
+  <div class="datebar">
+    <button id="prev">‹ ก่อนหน้า</button>
+    <input type="date" id="date">
+    <button id="next">ถัดไป ›</button>
+    <button id="todaybtn">วันนี้</button>
+  </div>
+</div>
+<div class="wrap">
+  <div id="alerts"></div>
+  <h2 id="sumhead">ยอดขาย</h2>
+  <div class="cards" id="cards"></div>
+
+  <h2>ใบปิดยอด — แยกตามกะ</h2>
+  <div id="shifts"></div>
+
+  <h2>ย้อนหลัง 14 วัน <span style="font-weight:400;color:var(--ink-3)">(กดที่วันที่เพื่อดูวันนั้น)</span></h2>
+  <div class="chart" id="chart"></div>
+  <div class="legend"><i style="background:#0C223A"></i>ML3 โกดัง &nbsp; <i style="background:#C89535"></i>ML2 ร้าน</div>
+
+  <p class="foot">© บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด · ตัวเลขตรงกับใบปิดยอดที่ POS พิมพ์</p>
+</div>
+<script>
+const D = __DATA__;
+const $ = id => document.getElementById(id);
+const BR = Object.keys(D.branches);
+const TH_MON = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const baht = n => Math.round(n).toLocaleString("en-US");
+const kb = n => Math.abs(n) >= 1e6 ? (n/1e6).toFixed(2)+"M" : Math.abs(n) >= 1e4 ? Math.round(n/1e3)+"K" : baht(n);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const thDate = iso => { const d=new Date(iso+"T00:00:00"); return d.getDate()+" "+TH_MON[d.getMonth()]+" "+(d.getFullYear()+543); };
+const thShort = iso => { const d=new Date(iso+"T00:00:00"); return d.getDate()+" "+TH_MON[d.getMonth()]; };
+const shift = (iso,n) => { const d=new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+const dayOf = (br,iso) => D.branches[br].days[iso] || {bills:0,rev:0,gp:0,ch:{},shifts:[]};
+const chName = (br,t) => D.branches[br].names[t] || ("ช่องทาง " + t);
+let cur = D.today;
+$("gen").textContent = "อัปเดต " + D.generatedTh;
+
+function chg(now, prev){
+  if(!prev) return '<div class="chg flat">วันก่อนไม่มียอด</div>';
+  const p = Math.round((now-prev)/prev*100);
+  const c = p>0?"up":(p<0?"down":"flat");
+  return '<div class="chg '+c+'">'+(p>0?"▲ +":(p<0?"▼ ":"= "))+p+"% จากวันก่อน ("+kb(prev)+")</div>";
+}
+function chips(br, ch){
+  const ks = Object.keys(ch).sort((a,b)=>ch[b]-ch[a]);
+  return '<div class="ch">' + (ks.length ? ks.map(t=>{
+    const cls = t==="0" ? " cash" : (t==="2" ? " tr" : "");
+    return '<span class="chip'+cls+'">'+esc(chName(br,t))+' <b>'+baht(ch[t])+'</b></span>';
+  }).join("") : '<span class="chip">ไม่มีบิล</span>') + "</div>";
+}
+
+function render(){
+  $("date").value = cur;
+  $("sumhead").textContent = "ยอดขาย · " + thDate(cur);
+  const prev = shift(cur,-1);
+
+  /* ---- การ์ดยอดขาย ---- */
+  let sT={bills:0,rev:0,gp:0}, sP={bills:0,rev:0,gp:0}, html="";
+  BR.forEach(br=>{
+    const t=dayOf(br,cur), p=dayOf(br,prev);
+    sT.bills+=t.bills; sT.rev+=t.rev; sT.gp+=t.gp; sP.rev+=p.rev;
+    const gp = t.rev>0 ? Math.round(t.gp/t.rev*100) : 0;
+    html += '<div class="card"><div class="bn">'+br+" "+esc(D.branches[br].name)+"</div>"
+      + '<div class="rev">฿'+baht(t.rev)+"</div>"
+      + '<div class="meta">'+t.bills+" บิล · เฉลี่ย ฿"+baht(t.bills?t.rev/t.bills:0)+"/ใบ"
+      + (t.rev>0?" · กำไรขั้นต้น "+gp+"%":"")+"</div>"
+      + chg(t.rev,p.rev) + chips(br,t.ch) + "</div>";
+  });
+  if(BR.length>1){
+    html += '<div class="card total"><div class="bn">รวมทุกสาขา</div><div class="rev">฿'+baht(sT.rev)+"</div>"
+      + '<div class="meta">'+sT.bills+" บิล · กำไรขั้นต้น ฿"+baht(sT.gp)+"</div>"+chg(sT.rev,sP.rev)+"</div>";
+  }
+  $("cards").innerHTML = html;
+
+  /* ---- แจ้งเตือน: ลิ้นชักไม่ตรง / ข้อมูลยังไม่เข้า ---- */
+  let al = "";
+  const bad = [];
+  BR.forEach(br => dayOf(br,cur).shifts.forEach(s => { if(s.closed && s.diff) bad.push({br,s}); }));
+  if(bad.length){
+    al += '<div class="alert bad"><b>⚠️ เงินในลิ้นชักไม่ตรง '+bad.length+' กะ</b><br>'
+      + bad.map(x=>"• "+x.br+" กะ "+x.s.id+" ("+esc(x.s.cashier)+") "
+        + (x.s.diff<0?"ขาด":"เกิน")+" ฿"+baht(Math.abs(x.s.diff))).join("<br>") + "</div>";
+  }
+  const stale = BR.filter(br=>{ const s=D.branches[br].dataAt; return !s || s.slice(0,10) < cur; })
+                  .map(br=>br+" (ข้อมูลถึง "+(D.branches[br].dataAtTh||"-")+")");
+  if(stale.length) al += '<div class="alert warn">ยังไม่ได้รับข้อมูลของวันนี้จาก <b>'+stale.join(" · ")+"</b> — ตัวเลขอาจยังไม่ครบ</div>";
+  const closedAll = BR.every(br=>{ const d=dayOf(br,cur); return d.shifts.length && d.shifts.every(s=>s.closed); });
+  if(!bad.length && closedAll) al += '<div class="alert ok">✅ ปิดกะครบทุกสาขา เงินในลิ้นชักตรงทั้งหมด</div>';
+  $("alerts").innerHTML = al;
+
+  /* ---- ใบปิดยอดรายกะ ---- */
+  let sh = "";
+  BR.forEach(br=>{
+    const d = dayOf(br,cur);
+    if(!d.shifts.length){ sh += '<div class="shift"><div class="h"><b>'+br+"</b> <span class='who'>ยังไม่มีการเปิดกะในวันนี้</span></div></div>"; return; }
+    d.shifts.forEach(s=>{
+      /* กะที่ยังไม่ปิด POS ยังไม่สรุป SalePrice (เป็น 0) -> ใช้ยอดเงินสดที่คำนวณระหว่างกะแทน */
+      const cash = s.closed ? s.sale : (s.ch["0"] || 0);
+      const rows = [];
+      rows.push(["เงินในลิ้นชักเริ่มต้น", s.openMoney]);
+      rows.push([s.closed ? "ยอดขาย (เงินสด)" : "ยอดขาย (เงินสด) ระหว่างกะ", cash]);
+      if(!s.closed) rows.push(["เงินในลิ้นชักตอนนี้ (คาด)", s.openMoney + cash]);
+      if(s.closed){
+        rows.push(["เงินในลิ้นชัก ในระบบ", s.expect, "sep"]);
+        rows.push(["เงินในลิ้นชัก นับได้", s.closeMoney]);
+      }
+      let t = '<div class="shift"><div class="h"><b>'+br+" กะ "+s.id+'</b> <span class="who">'+esc(s.cashier)+"</span>"
+        + '<span class="open">'+s.open+" → "+(s.close||"ยังไม่ปิด")+" · "+s.bills+" บิล</span></div>"
+        + '<table class="slip">'
+        + rows.map(r=>'<tr'+(r[2]?' class="sep"':'')+'><td>'+r[0]+'</td><td class="v">'+baht(r[1])+"</td></tr>").join("");
+      if(s.closed){
+        t += '<tr class="diff '+(s.diff?"bad":"ok")+'"><td>ส่วนต่างเงินในลิ้นชัก</td><td class="v">'
+          + (s.diff>0?"+":"")+baht(s.diff)+"</td></tr>";
+      }
+      t += "</table>" + chips(br, s.ch) + "</div>";
+      sh += t;
+    });
+  });
+  $("shifts").innerHTML = sh;
+
+  /* ---- กราฟ 14 วัน ---- */
+  const days = []; for(let i=13;i>=0;i--) days.push(shift(cur,-i));
+  let max = 1; days.forEach(d=>BR.forEach(br=>max=Math.max(max,dayOf(br,d).rev)));
+  let c = '<table class="bars">';
+  days.forEach(d=>{
+    let tot=0;
+    c += '<tr'+(d===cur?' class="sel"':'')+'><td class="d" data-d="'+d+'">'+thShort(d)+'</td><td class="b">';
+    BR.forEach(br=>{ const v=dayOf(br,d).rev; tot+=v;
+      c += '<span class="b '+br.toLowerCase()+'" style="width:'+(v/max*100)+'%;margin-bottom:2px"></span>'; });
+    c += '</td><td class="n">'+(tot?kb(tot):"–")+"</td></tr>";
+  });
+  $("chart").innerHTML = c+"</table>";
+  $("chart").querySelectorAll("td.d").forEach(td=>td.addEventListener("click",()=>{cur=td.dataset.d;render();}));
+}
+$("date").addEventListener("change", e=>{ if(e.target.value){ cur=e.target.value; render(); }});
+$("prev").addEventListener("click", ()=>{ cur=shift(cur,-1); render(); });
+$("next").addEventListener("click", ()=>{ cur=shift(cur,1); render(); });
+$("todaybtn").addEventListener("click", ()=>{ cur=D.today; render(); });
+render();
+</script></body></html>

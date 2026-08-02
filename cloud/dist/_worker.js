@@ -12,11 +12,11 @@ const ACCESS = {
   marketing:  ["marketing"],
   sales:      ["sales"],
 };
-const LABEL = { purchasing:"งานจัดซื้อ", accounting:"บัญชีและบุคคล", warehouse:"คลังและจัดส่ง", marketing:"งานการตลาด", sales:"ขายปลีก·ขายส่ง" };
+const LABEL = { purchasing:"งานจัดซื้อ", accounting:"บัญชีและบุคคล", warehouse:"คลังและจัดส่ง", marketing:"งานการตลาด", sales:"ขายปลีก·ขายส่ง", executive:"สรุปผู้บริหาร (เฉพาะผู้บริหาร)", daily:"สรุปปิดบิลสิ้นวัน (เฉพาะผู้บริหาร)" };
 const ROLE_LABEL = { owner:"เจ้าของ · ผู้บริหาร", purchasing:"ทีมจัดซื้อ", accounting:"ทีมบัญชีและบุคคล", warehouse:"ทีมคลังและจัดส่ง", marketing:"ทีมการตลาด", sales:"ทีมขาย" };
 // การ์ดแผนก (เรียงตามลำดับที่จะแสดง)
 const TILES = [
-  { key:"purchasing", icon:"🛒", title:"งานจัดซื้อ",     desc:"ABC · จุดสั่งซื้อ · ระบายสต๊อก C · มาร์จิ้น", live:true },
+  { key:"purchasing", icon:"🛒", title:"งานจัดซื้อ",     desc:"ABC · จุดสั่งซื้อ · เติมสต๊อก · จัดการตัวคูณ", live:true },
   { key:"accounting", icon:"💰", title:"บัญชีและบุคคล",   desc:"บัญชี · การเงิน · งานบุคคล · ลงเวลา",     live:false },
   { key:"sales",      icon:"🧾", title:"ขายปลีก · ขายส่ง", desc:"ยอดขาย · ลูกค้า · ใบเสร็จ",                live:false },
   { key:"warehouse",  icon:"📦", title:"คลังและจัดส่ง",   desc:"LSMG Logistic · เส้นทาง · จัดส่ง · เก็บเงิน", live:true },
@@ -243,6 +243,14 @@ function homePage(sess, env) {
       + `${attLive ? '<span class="badge on">ใช้งานได้</span>' : '<span class="badge dev">รอลิงก์</span>'}`
       + `<div class="ic">⏰</div><div class="t">ลงเวลาเข้า-ออกงาน</div><div class="d">บันทึกเวลาทำงาน · ลิงก์แอปลงเวลา</div>`
       + `<div class="go">${attLive ? "เปิดแอปลงเวลา →" : "เร็วๆ นี้"}</div></a>`);
+  }
+  // การ์ดสรุปผู้บริหาร — เฉพาะ owner/admin (กำไร · มาร์จิ้น · เร่งระบาย · ยอดขายรายเดือน)
+  // แยกออกจากหน้าจัดซื้อโดยตั้งใจ: ทีมจัดซื้อไม่เห็นตัวเลขกำไร
+  if (sess.is_admin) {
+    cards.unshift(`<a class="tile" href="/executive"><span class="badge on">ผู้บริหาร</span>`
+      + `<div class="ic">👔</div><div class="t">คอนโซลผู้บริหาร</div>`
+      + `<div class="d">ยอดขาย · กำไรมาร์จิ้น · เร่งระบายสต๊อก · ปิดบิลสิ้นวัน</div>`
+      + `<div class="go">เปิดแดชบอร์ด →</div></a>`);
   }
 
   const brs = sessBranches(sess);
@@ -779,6 +787,26 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return masterPage(sess);
     }
     if (path.startsWith("/api/master/")) return masterApi(request, env, url);
+
+    // สรุปผู้บริหาร — เฉพาะ owner/admin เท่านั้น · แยกไฟล์จากหน้าจัดซื้อ
+    // (ข้อมูลกำไร/มาร์จิ้น/เร่งระบายไม่ถูกฝังในไฟล์จัดซื้อ ทีมจัดซื้อจึงเปิดดูไม่ได้แม้ view-source)
+    const execP = path.replace(/^\/+/, "").replace(/\.html$/, "").split("/")[0];
+    if (execP === "executive") {
+      const sess = await readSession(request, env);
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/executive") } });
+      if (!sess.is_admin) return forbidden("executive", sess);   // owner บายพาส ipRestricted อยู่แล้ว
+      const b = (url.searchParams.get("b") || "").toUpperCase();
+      if (b === "ML2") return env.ASSETS.fetch(new Request(new URL("/executive-ml2", url), request));
+      return env.ASSETS.fetch(new Request(new URL("/executive", url), request));   // clean URL → executive.html
+    }
+
+    // สรุปปิดบิลสิ้นวัน — เฉพาะ owner/admin · ไฟล์เดียวรวมทุกสาขา (เลือกวันที่ในหน้าเว็บ)
+    if (execP === "daily") {
+      const sess = await readSession(request, env);
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/daily") } });
+      if (!sess.is_admin) return forbidden("daily", sess);
+      return env.ASSETS.fetch(new Request(new URL("/daily", url), request));   // clean URL → daily.html
+    }
 
     // แผนกงาน = ต้องล็อกอิน + มีสิทธิ์
     const section = path.replace(/^\/+/, "").replace(/\.html$/, "").split("/")[0];

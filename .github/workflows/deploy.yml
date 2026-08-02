@@ -44,7 +44,9 @@ jobs:
           SMARTPET_APPROVED: Approved_NoSubUnit.csv
           SMARTPET_OUT: output
           PYTHONIOENCODING: utf-8
-        run: python generate.py
+        run: |
+          python generate.py
+          python daily_summary.py
 
       - name: Copy dashboard into site
         run: |
@@ -55,6 +57,20 @@ jobs:
             echo "รวมแดชบอร์ด ML2 เข้าเว็บแล้ว"
           else
             echo "ไม่มีแดชบอร์ด ML2 รอบนี้ — ข้าม"
+          fi
+          # หน้าผู้บริหาร (owner เท่านั้น) — แยกไฟล์ ข้อมูลกำไรไม่ปนกับหน้าจัดซื้อ
+          if [ -f output/executive_latest.html ]; then
+            cp output/executive_latest.html cloud/dist/executive.html
+            echo "รวมหน้าผู้บริหาร ML3 เข้าเว็บแล้ว"
+          fi
+          if [ -f output/executive_ML2.html ]; then
+            cp output/executive_ML2.html cloud/dist/executive-ml2.html
+            echo "รวมหน้าผู้บริหาร ML2 เข้าเว็บแล้ว"
+          fi
+          # สรุปปิดบิลสิ้นวัน (owner เท่านั้น) — ไฟล์เดียวรวมทุกสาขา เลือกวันที่ในหน้าเว็บ
+          if [ -f output/daily.html ]; then
+            cp output/daily.html cloud/dist/daily.html
+            echo "รวมสรุปปิดบิลสิ้นวันเข้าเว็บแล้ว"
           fi
 
       - name: Deploy to Cloudflare Pages

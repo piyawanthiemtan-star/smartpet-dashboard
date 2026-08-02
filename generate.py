@@ -21,6 +21,7 @@ BACKUP_DIR = os.environ.get("SMARTPET_BACKUP_DIR", os.path.join(BASE, r"Import\O
 MASTER_XLSX= os.environ.get("SMARTPET_MASTER",     os.path.join(BASE, r"Master\OnePoint\Master_Multiplier.xlsx"))
 APPROVED   = os.environ.get("SMARTPET_APPROVED",   os.path.join(BASE, r"Master\OnePoint\Approved_NoSubUnit.csv"))
 TEMPLATE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
+TEMPLATE_EXEC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "executive_template.html")
 OUT_DIR    = os.environ.get("SMARTPET_OUT", os.path.join(os.path.dirname(os.path.abspath(__file__)), "output"))
 ML3_SOURCE = "7FEF%"     # warehouse GUID prefix that does the purchasing
 REVIEW_DAYS= 30          # monthly ordering cycle
@@ -304,6 +305,12 @@ def main():
     log(f"master singles: {len(msingles)} | approved no-sub-unit: {len(approved)}")
     os.makedirs(OUT_DIR, exist_ok=True)
     tpl = open(TEMPLATE, encoding="utf-8").read()
+    tpl_exec = open(TEMPLATE_EXEC, encoding="utf-8").read()
+
+    # ข้อมูล "ผู้บริหาร" (กำไร/มาร์จิ้น/เร่งระบาย/มูลค่าสต๊อกรวม) แยกเป็นหน้าเฉพาะ owner
+    # ห้ามฝังลงไฟล์จัดซื้อ — ทีมจัดซื้อโหลดไฟล์นั้นไป เปิด view-source ก็เห็นได้
+    EXEC_ONLY = {"marginAll","marginA","marginB","marginC","stockTotal",
+                 "clrCount","clrCash","clrRecover","clrStrong","clrHold"}
 
     # สาขาไหนไม่มีไฟล์ก็ข้ามไป — ไม่ให้สาขาเดียวพังทำให้ทั้งระบบล้ม
     failed, done = [], []
@@ -321,14 +328,33 @@ def main():
             failed.append(branch)
             continue
         log(f"[{branch}] สรุป:", json.dumps(data["s"], ensure_ascii=False))
-        html = tpl.replace("__DATA__", json.dumps(data, ensure_ascii=False))
+
+        # --- แยกข้อมูลเป็น 2 ชุด ---
+        # จัดซื้อ: ตัดตัวเลขกำไร/มาร์จิ้น/ระบาย + trend + clearance ออก (ไม่ให้ฝังในไฟล์)
+        pur_s = {k: v for k, v in data["s"].items() if k not in EXEC_ONLY}
+        pur_data = {"s": pur_s, "items": data["items"], "unmapped": data["unmapped"]}
+        # ผู้บริหาร: เก็บ s เต็ม + trend + clearance (ไม่ต้องมี items/unmapped)
+        exec_data = {"s": data["s"], "trend": data["trend"], "clearance": data["clearance"]}
+
+        html = tpl.replace("__DATA__", json.dumps(pur_data, ensure_ascii=False))
         names = [f"dashboard_{branch}.html"]
         if branch == "ML3":     # ชื่อเดิม — ของเก่า (daily_run STEP 6) ยังใช้ได้เหมือนเดิม
             names += [f"dashboard_{data['s']['generated']}.html", "dashboard_latest.html"]
         for name in names:
             with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
                 f.write(html)
-        log(f"[{branch}] เขียนแดชบอร์ด ->", os.path.join(OUT_DIR, names[0]))
+
+        # หน้าผู้บริหาร (แยกไฟล์ · เสิร์ฟเฉพาะ owner ผ่าน worker)
+        html_exec = tpl_exec.replace("__DATA__", json.dumps(exec_data, ensure_ascii=False))
+        exec_names = [f"executive_{branch}.html"]
+        if branch == "ML3":
+            exec_names += ["executive_latest.html"]
+        for name in exec_names:
+            with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8") as f:
+                f.write(html_exec)
+
+        log(f"[{branch}] เขียนแดชบอร์ด ->", os.path.join(OUT_DIR, names[0]),
+            "| ผู้บริหาร ->", os.path.join(OUT_DIR, exec_names[0]))
         done.append(branch)
 
     if not done:
