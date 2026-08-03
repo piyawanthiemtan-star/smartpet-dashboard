@@ -234,8 +234,9 @@ if(D.s.branch){ $("branch-badge").textContent=D.s.branch;
   document.title=document.title.replace(/ML\d/,D.s.branch);
 }
 if(D.s.branchName) $("branch-name").textContent=D.s.branchName;
-/* ปุ่มสลับสาขา — โชว์เฉพาะตอนเปิดผ่านพอร์ทัล */
+/* ปุ่มสลับสาขา + ปุ่มหน้าหลัก — โชว์เฉพาะตอนเปิดผ่านพอร์ทัล (ไม่ใช่เปิดเป็นไฟล์ local) */
 if(location.protocol==='http:'||location.protocol==='https:'){
+  var _hb=$("homebtn"); if(_hb) _hb.style.display="inline-flex";
   $("branchseg").style.display="";
   document.querySelectorAll("#branchseg button").forEach(function(b){
     if(b.dataset.b===D.s.branch) b.classList.add("on");
