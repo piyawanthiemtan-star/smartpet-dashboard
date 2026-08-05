@@ -875,6 +875,7 @@
     margin-bottom: 14px;
   }
   .portal-back:active { transform: scale(0.97); }
+  .pchk{display:inline-block;width:12px;height:12px;border:1.4px solid #333;border-radius:2px;vertical-align:-1px;margin-right:3px;}
 </style>
 </head>
 <body>
@@ -1706,6 +1707,8 @@ function renderPrintSheet() {
       <td>${addr}</td>
       <td>${s.phone || '-'}</td>
       <td style="text-align:right;">${amt ? '฿' + fmtBaht(amt) : '-'}</td>
+      <td style="text-align:center;"><span class="pchk"></span></td>
+      <td style="white-space:nowrap;"><span class="pchk"></span>สด&nbsp;&nbsp;<span class="pchk"></span>โอน</td>
     </tr>`;
   }).join('');
   const approxNote = customRoute.some(id => STORES[id].geo_precision === 'approx')
@@ -1715,9 +1718,9 @@ function renderPrintSheet() {
       วันที่พิมพ์: ${today} · จำนวนร้านค้า: ${customRoute.length} ร้าน · ระยะทางรวมโดยประมาณ: ${dist} กม.${totalAmt ? ` · ยอดเก็บรวม: <b>฿${fmtBaht(totalAmt)}</b>` : ''}
     </div>
     <table class="print-table">
-      <thead><tr><th>ลำดับ</th><th>รหัส</th><th>ชื่อร้าน</th><th>ที่อยู่</th><th>เบอร์โทร</th><th style="text-align:right;">ยอดเงิน</th></tr></thead>
+      <thead><tr><th>ลำดับ</th><th>รหัส</th><th>ชื่อร้าน</th><th>ที่อยู่</th><th>เบอร์โทร</th><th style="text-align:right;">ยอดเงิน</th><th style="text-align:center;">ส่งแล้ว</th><th style="text-align:center;">เก็บได้จริง</th></tr></thead>
       <tbody>${rows}</tbody>
-      ${totalAmt ? `<tfoot><tr><td colspan="5" style="text-align:right; font-weight:600;">รวมยอดเก็บ</td><td style="text-align:right; font-weight:700;">฿${fmtBaht(totalAmt)}</td></tr></tfoot>` : ''}
+      ${totalAmt ? `<tfoot><tr><td colspan="5" style="text-align:right; font-weight:600;">รวมยอดเก็บ</td><td style="text-align:right; font-weight:700;">฿${fmtBaht(totalAmt)}</td><td></td><td></td></tr></tfoot>` : ''}
     </table>
     ${approxNote}
   `;
