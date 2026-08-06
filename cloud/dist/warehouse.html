@@ -901,6 +901,8 @@
       <div class="home-greet-title" id="homeGreeting"></div>
       <div class="home-greet-date" id="homeDate"></div>
     </div>
+    <div id="homeMenu1"></div>
+    <div class="menu-sec-title">ส่วนที่ 2 · งานจัดส่ง</div>
     <div class="home-stats" id="homeStats"></div>
     <div id="homeMenu"></div>
   </div>
@@ -1331,11 +1333,11 @@ function renderHome() {
     if (m.href) return `<a class="home-menu-card${m.wide ? ' wide' : ''}" style="${style}" href="${m.href}">${inner}</a>`;
     return `<button class="home-menu-card${m.wide ? ' wide' : ''}" style="${style}" onclick="switchTab('${m.view}')">${inner}</button>`;
   };
-  const sec = (title, items) => items.length
-    ? `<div class="menu-sec-title">${title}</div><div class="home-menu">${items.map(cardHtml).join('')}</div>` : '';
+  // ส่วนที่ 1 อยู่ติดใต้วันที่ · ส่วนที่ 2 (หัวข้อใน HTML) ครอบทั้งการ์ดสถิติ + เมนูจัดส่ง
+  document.getElementById('homeMenu1').innerHTML =
+    `<div class="menu-sec-title">ส่วนที่ 1 · เบิกสินค้า</div><div class="home-menu">${menu.filter(m => m.section === 1).map(cardHtml).join('')}</div>`;
   document.getElementById('homeMenu').innerHTML =
-      sec('ส่วนที่ 1 · เบิกสินค้า', menu.filter(m => m.section === 1))
-    + sec('ส่วนที่ 2 · งานจัดส่ง', menu.filter(m => m.section === 2));
+    `<div class="home-menu">${menu.filter(m => m.section === 2).map(cardHtml).join('')}</div>`;
 }
 function switchTab(view) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
