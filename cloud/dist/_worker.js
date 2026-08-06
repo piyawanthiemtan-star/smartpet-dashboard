@@ -292,7 +292,41 @@ const CAN_EDIT=${canEdit ? "true" : "false"};
 const ST={new:["🆕 งานใหม่","#a32d2d","#f7dede"],doing:["🔨 กำลังทำ","#8a5a12","#faeecd"],done:["✅ เสร็จแล้ว","#1c7a4a","#e3f4ea"]};
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function thDT(s){try{return new Date(s).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return s;}}
-function setStatus(id,st){fetch("/api/marketing-jobs/status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status:st})}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));}
+function setStatus(id,st){
+  const body={id:id,status:st};
+  if(st==="done"){
+    const pp=prompt("✅ ปิดงาน — ใส่ \"ชื่อโปรโมชั่นที่ตั้งใน POS\" (บังคับ เพื่อให้ผู้บริหารตามยอดได้):","");
+    if(pp===null) return;
+    if(!pp.trim()){alert("ต้องใส่ชื่อโปรโมชั่นก่อนปิดงานค่ะ");return;}
+    body.pos_promo=pp.trim();
+  }
+  fetch("/api/marketing-jobs/status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));
+}
+function copyPre(btn){
+  const t=btn.parentElement.querySelector("pre").textContent;
+  navigator.clipboard.writeText(t).then(()=>{btn.textContent="คัดลอกแล้ว ✓";setTimeout(()=>btn.textContent="คัดลอก",1500);}).catch(()=>alert("คัดลอกไม่สำเร็จ — เลือกข้อความแล้วก๊อปเองได้เลย"));
+}
+function buildCaption(j){
+  const lines=(j.items||[]).map(x=>"🐾 "+x.name+" เหลือ "+x.promo+".- (ปกติ "+x.price+".-) ลดถึง "+x.disc+"%");
+  return "🔥 โปรโมชันพิเศษ ลดจริง คุ้มจริง! 🔥\n\n"+lines.join("\n")+"\n\n📍 ของมีจำนวนจำกัด หมดแล้วหมดเลย\n📲 สอบถาม/สั่งจอง: ทักแชทเพจ หรือ LINE ของร้าน\n\n#เลยสมาร์ทเพ็ทช็อป #โปรโมชันสัตว์เลี้ยง #LOVEPET #อาหารสัตว์ราคาถูก";
+}
+function buildPrompt(j){
+  const its=(j.items||[]).map(x=>x.name+" ราคาพิเศษ "+x.promo+" บาท (ลด "+x.disc+"%)").join(" · ");
+  return "สร้างภาพโปสเตอร์โปรโมชันร้านสัตว์เลี้ยง สไตล์พรีเมียม โทนสีกรมท่า-ทอง (navy #0C223A + gold #C89535) พื้นหลังสะอาด หัวเรื่องใหญ่ \"โปรโมชันพิเศษ\" แสดงสินค้า "+(j.items||[]).length+" รายการ: "+its+" · มีป้ายเปอร์เซ็นต์ส่วนลดสีทองโดดเด่น ตัวหนังสือภาษาไทยอ่านง่าย จัดวางแบบโปสเตอร์ขายของมืออาชีพ ขนาดภาพ 1080x1080 สำหรับโพสต์ Facebook";
+}
+function toolkit(j){
+  const box='background:#FAF6F1;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:6px 0 12px;white-space:pre-wrap;font-size:13px;line-height:1.6;font-family:inherit';
+  const cbtn='background:transparent;color:#9D681E;border:1px solid #D8B479;border-radius:6px;padding:3px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;margin-left:8px';
+  return '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:#173D61">🧰 ชุดเครื่องมือทีมการตลาด (คอนเทนท์ · Prompt สื่อ · ขั้นตอน)</summary>'
+    +'<div style="margin-top:12px"><b>✍️ 1) ร่างคอนเทนท์</b> (คัดลอกไปแก้/เติมได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildCaption(j))+'</pre></div>'
+    +'<div><b>🎨 2) Prompt สร้างสื่อ</b> (วางในเครื่องมือสร้างภาพ AI ได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildPrompt(j))+'</pre></div>'
+    +'<div><b>📌 3) ขั้นตอนที่ต้องทำ</b><ol style="margin:6px 0 4px;padding-left:22px;line-height:1.9">'
+    +'<li>เขียน/ปรับคอนเทนท์จากร่างข้อ 1</li>'
+    +'<li>สร้างภาพสื่อด้วย Prompt ข้อ 2</li>'
+    +'<li><b>โพสต์ลงเพจ Facebook ของร้าน</b></li>'
+    +'<li>ตั้งโปรโมชั่นใน POS แล้วกลับมากด "✅ ปิดงาน" <b>พร้อมกรอกชื่อโปรโมชั่นที่ตั้งใน POS</b></li>'
+    +'</ol></div></details>';
+}
 function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
   const el=document.getElementById("jobs");
   if(!Array.isArray(js)){el.innerHTML='<p style="color:#a32d2d">'+esc(js.error||"โหลดไม่สำเร็จ")+'</p>';return;}
@@ -308,11 +342,12 @@ function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
     return '<div style="background:var(--surface);border:1px solid var(--gold-soft);border-radius:16px;padding:20px 22px;box-shadow:var(--sh-sm)">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-family:var(--f-head);font-size:17px">ใบสั่งงาน #'+j.id+'</b>'
       +'<span style="background:'+t[2]+';color:'+t[1]+';font-size:12px;font-weight:700;padding:3px 12px;border-radius:99px">'+t[0]+'</span>'
-      +'<span style="font-size:12.5px;color:var(--muted)">สั่งโดย '+esc(j.created_by)+' · '+thDT(j.created_at)+((j.status_by&&j.status!=="new")?' · อัปเดตโดย '+esc(j.status_by)+' '+thDT(j.status_at):'')+'</span></div>'
+      +'<span style="font-size:12.5px;color:var(--muted)">สั่งโดย '+esc(j.created_by)+' · '+thDT(j.created_at)+((j.status_by&&j.status!=="new")?' · อัปเดตโดย '+esc(j.status_by)+' '+thDT(j.status_at):'')+(j.pos_promo?' · 🏷️ โปรใน POS: <b>'+esc(j.pos_promo)+'</b>':'')+'</span></div>'
       +(j.note?'<div style="margin:10px 0 4px;padding:10px 14px;background:#FFF8EC;border-left:3px solid #C89535;border-radius:6px;font-size:14px">📝 '+esc(j.note)+'</div>':"")
       +'<div style="overflow-x:auto;margin-top:10px"><table style="border-collapse:collapse;width:100%;font-size:13px;min-width:560px"><thead><tr style="background:var(--navy);color:#fff">'
       +'<th style="padding:6px 8px">#</th><th style="padding:6px 8px">บาร์โค้ด</th><th style="padding:6px 8px">รหัสประเภท</th><th style="padding:6px 8px;text-align:left">สินค้า</th><th style="padding:6px 8px">ราคาเดิม</th><th style="padding:6px 8px">ราคาโปร</th><th style="padding:6px 8px">ลด</th>'
       +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+      +toolkit(j)
       +btns+'</div>';
   }).join("");
 }).catch(e=>{document.getElementById("jobs").innerHTML='<p style="color:#a32d2d">โหลดไม่สำเร็จ: '+esc(e)+'</p>';});}
@@ -913,8 +948,14 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
         if (!canEdit) return J({ error: "อัปเดตสถานะได้เฉพาะทีมการตลาด/ผู้บริหาร" }, 403);
         let b; try { b = await request.json(); } catch { return J({ error: "bad json" }, 400); }
         if (!["new", "doing", "done"].includes(b.status) || !(+b.id > 0)) return J({ error: "ข้อมูลไม่ครบ" }, 400);
-        const r = await sb("marketing_jobs?id=eq." + (+b.id), { method: "PATCH",
-          body: JSON.stringify({ status: b.status, status_by: sess.user, status_at: new Date().toISOString() }) });
+        const patch = { status: b.status, status_by: sess.user, status_at: new Date().toISOString() };
+        // ปิดงานต้องกรอก "ชื่อโปรโมชั่นที่ตั้งใน POS" เสมอ — Owner ใช้ตามยอดขายทีหลังได้
+        if (b.status === "done") {
+          const pp = String(b.pos_promo || "").trim();
+          if (!pp) return J({ error: "ต้องใส่ชื่อโปรโมชั่นที่ตั้งใน POS ก่อนปิดงาน" }, 400);
+          patch.pos_promo = pp.slice(0, 200);
+        }
+        const r = await sb("marketing_jobs?id=eq." + (+b.id), { method: "PATCH", body: JSON.stringify(patch) });
         return J({ ok: r.ok }, r.ok ? 200 : r.status);
       }
       return J({ error: "method not allowed" }, 405);
