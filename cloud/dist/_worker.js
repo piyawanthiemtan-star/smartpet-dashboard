@@ -350,10 +350,13 @@ function genGo(id,btn){
 function printTags(id){
   // ป้ายโปรโมชั่นติดชั้นวาง — กระดาษ 80mm (เครื่องพิมพ์ใบเสร็จ) 1 ป้าย/สินค้า มีเส้นตัดคั่น
   const j=JOBS[id]; if(!j) return;
-  const w=window.open("","_blank");   // เปิดหน้าต่างทันทีตอนกดปุ่ม — ถามทีหลังจะโดนเบราว์เซอร์บล็อกป๊อปอัพ
-  if(!w){alert("เบราว์เซอร์บล็อกป๊อปอัพ — กดอนุญาต popup ของเว็บนี้ที่ไอคอนขวาบนช่องที่อยู่ แล้วลองใหม่");return;}
-  const period=prompt("ระยะเวลาจัดโปรโมชั่น (เช่น 7 - 31 ส.ค. 69):","");
-  if(period===null){w.close();return;}
+  // ไม่ใช้ prompt/alert เลย — ถ้าผู้ใช้เคยติ๊ก "บล็อกกล่องโต้ตอบ" ทุกอย่างจะเงียบหาย แก้ยากมาก
+  const pf=document.getElementById("pd"+id);
+  const msg=document.getElementById("pmsg"+id);
+  const period=(pf&&pf.value.trim())||"";
+  const w=window.open("","_blank");
+  if(!w){if(msg)msg.textContent="⚠️ เบราว์เซอร์บล็อกป๊อปอัพ — กดไอคอนที่มุมขวาของช่องที่อยู่เว็บ แล้วเลือกอนุญาต popup ของเว็บนี้ จากนั้นกดปุ่มใหม่";return;}
+  if(msg)msg.textContent="";
   const note=(j.note||"").trim();
   const blocks=(j.items||[]).map(function(x){
     const promo=note||("ราคาพิเศษ "+x.promo+".- (ปกติ "+x.price+".-)");
@@ -362,7 +365,7 @@ function printTags(id){
       +'<div class="bc">'+esc(x.bc||"")+'</div>'
       +'<div class="nm">'+esc(x.name)+'</div>'
       +'<div class="pm">'+esc(promo)+'</div>'
-      +(period.trim()?'<div class="pd">ระยะเวลา: '+esc(period.trim())+'</div>':'')
+      +(period?'<div class="pd">ระยะเวลา: '+esc(period)+'</div>':'')
       +'</div><div class="cut">&#9986; --------------------------------</div>';
   }).join("");
   w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ป้ายโปรโมชั่น 80mm</title><style>'
@@ -448,11 +451,13 @@ function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
   el.innerHTML=js.map(j=>{const t=ST[j.status]||ST.new;
     const C='padding:6px 8px;border-bottom:1px solid var(--border);';
     const rows=(j.items||[]).map((x,i)=>'<tr><td style="'+C+'text-align:center">'+(i+1)+'</td><td style="'+C+'font-family:monospace">'+esc(x.bc)+'</td><td style="'+C+'text-align:center">'+esc(x.code)+'</td><td style="'+C+'">'+esc(x.name)+'</td><td style="'+C+'text-align:right">'+x.price+'</td><td style="'+C+'text-align:right;font-weight:700">'+x.promo+'</td><td style="'+C+'text-align:center">'+x.disc+'%</td></tr>').join("");
-    const btns=CAN_EDIT?('<div style="display:flex;gap:8px;margin-top:12px">'
+    const btns=CAN_EDIT?('<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">'
       +(j.status==="new"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:#C89535;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🔨 รับงานนี้</button>':"")
       +(j.status!=="done"?'<button onclick="setStatus('+j.id+',\\'done\\')" style="background:#2f7d4f;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">✅ ปิดงาน</button>':"")
       +(j.status==="done"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer">↩︎ เปิดงานอีกครั้ง</button>':"")
+      +'<input id="pd'+j.id+'" placeholder="ระยะเวลาโปร เช่น 7-31 ส.ค. 69" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12.5px;width:190px">'
       +'<button onclick="printTags('+j.id+')" style="background:#6B4A33;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🖨 ป้ายชั้นวาง 80mm</button>'
+      +'<span id="pmsg'+j.id+'" style="font-size:12px;color:#a32d2d;flex-basis:100%"></span>'
       +(IS_ADMIN?'<button onclick="delJob('+j.id+')" style="background:transparent;color:#a32d2d;border:1px solid #e3b3b3;border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer;margin-left:auto">🗑 ลบใบสั่งงาน</button>':"")
       +'</div>'):"";
     return '<div style="background:var(--surface);border:1px solid var(--gold-soft);border-radius:16px;padding:20px 22px;box-shadow:var(--sh-sm)">'
