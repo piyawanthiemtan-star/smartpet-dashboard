@@ -347,6 +347,41 @@ function genGo(id,btn){
     })
     .catch(e=>{btn.disabled=false;btn.textContent="🚀 สร้างภาพจากคำสั่งนี้";alert("สร้างภาพไม่สำเร็จ: "+e);});
 }
+function printTags(id){
+  // ป้ายโปรโมชั่นติดชั้นวาง — กระดาษ 80mm (เครื่องพิมพ์ใบเสร็จ) 1 ป้าย/สินค้า มีเส้นตัดคั่น
+  const j=JOBS[id]; if(!j) return;
+  const period=prompt("ระยะเวลาจัดโปรโมชั่น (เช่น 7 - 31 ส.ค. 69):","");
+  if(period===null) return;
+  const note=(j.note||"").trim();
+  const blocks=(j.items||[]).map(function(x){
+    const promo=note||("ราคาพิเศษ "+x.promo+".- (ปกติ "+x.price+".-)");
+    return '<div class="tag">'
+      +'<div class="hd">&#9733;&#9733; Promotion &#9733;&#9733;</div>'
+      +'<div class="bc">'+esc(x.bc||"")+'</div>'
+      +'<div class="nm">'+esc(x.name)+'</div>'
+      +'<div class="pm">'+esc(promo)+'</div>'
+      +(period.trim()?'<div class="pd">ระยะเวลา: '+esc(period.trim())+'</div>':'')
+      +'</div><div class="cut">&#9986; --------------------------------</div>';
+  }).join("");
+  const w=window.open("","_blank");
+  w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ป้ายโปรโมชั่น 80mm</title><style>'
+    +'@page{size:80mm auto;margin:2mm}'
+    +'body{width:72mm;margin:0 auto;font-family:Tahoma,sans-serif;color:#000;background:#fff}'
+    +'.tag{text-align:center;padding:3mm 0 1mm}'
+    +'.hd{font-size:16px;font-weight:700;letter-spacing:1px;border-top:2px solid #000;border-bottom:2px solid #000;padding:1.5mm 0;margin-bottom:2mm}'
+    +'.bc{font-family:Consolas,monospace;font-size:13px;letter-spacing:1px;margin:1mm 0}'
+    +'.nm{font-size:15px;font-weight:700;line-height:1.4;margin:1mm 0}'
+    +'.pm{font-size:18px;font-weight:800;margin:2mm 1mm;border:2px solid #000;border-radius:3mm;padding:2mm 1mm}'
+    +'.pd{font-size:12px;margin-top:1mm}'
+    +'.cut{text-align:center;font-size:10px;color:#666;margin:2mm 0}'
+    +'.btn{display:block;margin:4mm auto;padding:8px 22px;font-size:14px;font-weight:700;background:#C89535;color:#fff;border:none;border-radius:8px;cursor:pointer}'
+    +'@media print{.btn{display:none}}'
+    +'</style></head><body>'
+    +'<button class="btn" onclick="print()">&#128424;&#65039; พิมพ์</button>'
+    +blocks
+    +'</body></html>');
+  w.document.close();
+}
 function delJob(id){
   if(!confirm("ลบใบสั่งงาน #"+id+" ถาวรเลยหรือไม่? (กู้คืนไม่ได้)")) return;
   fetch("/api/marketing-jobs/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));
@@ -416,6 +451,7 @@ function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
       +(j.status==="new"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:#C89535;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🔨 รับงานนี้</button>':"")
       +(j.status!=="done"?'<button onclick="setStatus('+j.id+',\\'done\\')" style="background:#2f7d4f;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">✅ ปิดงาน</button>':"")
       +(j.status==="done"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer">↩︎ เปิดงานอีกครั้ง</button>':"")
+      +'<button onclick="printTags('+j.id+')" style="background:#6B4A33;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🖨 ป้ายชั้นวาง 80mm</button>'
       +(IS_ADMIN?'<button onclick="delJob('+j.id+')" style="background:transparent;color:#a32d2d;border:1px solid #e3b3b3;border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer;margin-left:auto">🗑 ลบใบสั่งงาน</button>':"")
       +'</div>'):"";
     return '<div style="background:var(--surface);border:1px solid var(--gold-soft);border-radius:16px;padding:20px 22px;box-shadow:var(--sh-sm)">'
