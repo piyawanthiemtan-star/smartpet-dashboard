@@ -307,49 +307,6 @@ function setStatus(id,st){
   fetch("/api/marketing-jobs/status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.ok?load():r.json().then(j=>{if(msg)msg.textContent=j.error||"ไม่สำเร็จ";}));
 }
 const JOBS={};
-function buildScenePrompt(j){
-  // สร้างจากคอนเทนท์ของใบสั่งงานจริง: รายชื่อสินค้า + เงื่อนไขโปรจากโน้ต · อังกฤษ = โมเดลภาพเข้าใจดีสุด
-  const names=(j.items||[]).map(x=>x.name).join(", ");
-  const note=(j.note||"").trim();
-  const L=[
-    "Professional promotional poster for a pet shop, bright cheerful cartoon-commercial style, square 1:1 composition, 1080x1080.",
-    "Background: blurred pet store shelves with warm bokeh lighting.",
-    "A cute fluffy orange Persian cat smiling, peeking from the bottom left corner.",
-    "Round wooden podium displaying "+((j.items||[]).length||3)+" pet product packages standing upright.",
-    names?("Products in this promotion: "+names+"."):"",
-    note?("Promotion theme: "+note+"."):"",
-    "Large rounded red promo banner at the top with thick white outline and drop shadow, red and white 3D megaphone icon beside it.",
-    "Empty cream colored rounded price badges on the right side.",
-    "Orange and yellow paw prints and golden sparkle stars scattered as decoration.",
-    "Color palette: bright red, cream, brown, warm orange.",
-    "No readable text, no letters, no words in the image."
-  ].filter(Boolean);
-  return L.join("\\n");
-}
-function openGen(id){
-  const ed=document.getElementById("ged"+id); if(!ed) return;
-  ed.style.display=ed.style.display==="none"?"block":"none";
-  const ta=document.getElementById("gta"+id);
-  if(ta&&!ta.value.trim()) ta.value=buildScenePrompt(JOBS[id]||{});
-}
-function genGo(id,btn){
-  const ta=document.getElementById("gta"+id);
-  const p=(ta&&ta.value.trim())||"";
-  if(!p){alert("คำสั่งภาพว่างอยู่");return;}
-  btn.disabled=true; btn.textContent="⏳ กำลังสร้าง... (~15-30 วิ)";
-  fetch("/api/marketing-jobs/image",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})
-    .then(r=>r.json().then(d=>({ok:r.ok,d})))
-    .then(({ok,d})=>{
-      btn.disabled=false; btn.textContent="🚀 สร้างภาพจากคำสั่งนี้";
-      const box=document.getElementById("img"+id);
-      if(!ok||!d.image){box.innerHTML='<p style="color:#a32d2d;font-size:13px">'+esc(d.error||"ไม่สำเร็จ")+'</p>';return;}
-      const src="data:image/jpeg;base64,"+d.image;
-      box.innerHTML='<img src="'+src+'" style="max-width:100%;border-radius:10px;border:1px solid var(--border);margin-top:8px" alt="ภาพฉากโปสเตอร์">'
-        +'<div style="margin-top:6px"><a download="promo-job'+id+'.jpg" href="'+src+'" style="color:#9D681E;font-weight:700;font-size:13px">⬇️ ดาวน์โหลดภาพ</a>'
-        +' <span style="font-size:12px;color:var(--muted)">· แก้คำสั่งแล้วกดสร้างใหม่ได้ · เอาเข้า Canva ขยายเป็น 1080 แล้วพิมพ์ข้อความไทย+แปะรูปสินค้าจริงทับ</span></div>';
-    })
-    .catch(e=>{btn.disabled=false;btn.textContent="🚀 สร้างภาพจากคำสั่งนี้";alert("สร้างภาพไม่สำเร็จ: "+e);});
-}
 function printTags(id){
   // ป้ายโปรโมชั่นติดชั้นวาง — กระดาษ 80mm (เครื่องพิมพ์ใบเสร็จ) 1 ป้าย/สินค้า มีเส้นตัดคั่น
   const j=JOBS[id]; if(!j) return;
@@ -386,13 +343,19 @@ function printTags(id){
     +'</body></html>');
   w.document.close();
 }
-function delJob(id){
-  if(!confirm("ลบใบสั่งงาน #"+id+" ถาวรเลยหรือไม่? (กู้คืนไม่ได้)")) return;
-  fetch("/api/marketing-jobs/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));
+function delJob(id,btn){
+  // ยืนยัน 2 จังหวะแทน confirm() — กันมือลั่นโดยไม่พึ่งกล่องโต้ตอบของเบราว์เซอร์
+  if(btn&&btn.dataset.arm!=="1"){
+    btn.dataset.arm="1";btn.textContent="⚠️ กดอีกครั้งเพื่อยืนยันลบถาวร";
+    setTimeout(function(){btn.dataset.arm="";btn.textContent="🗑 ลบใบสั่งงาน";},4000);
+    return;
+  }
+  const msg=document.getElementById("pmsg"+id);
+  fetch("/api/marketing-jobs/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})}).then(r=>r.ok?load():r.json().then(j=>{if(msg)msg.textContent=j.error||"ไม่สำเร็จ";}));
 }
 function copyPre(btn){
   const t=btn.parentElement.querySelector("pre").textContent;
-  navigator.clipboard.writeText(t).then(()=>{btn.textContent="คัดลอกแล้ว ✓";setTimeout(()=>btn.textContent="คัดลอก",1500);}).catch(()=>alert("คัดลอกไม่สำเร็จ — เลือกข้อความแล้วก๊อปเองได้เลย"));
+  navigator.clipboard.writeText(t).then(()=>{btn.textContent="คัดลอกแล้ว ✓";setTimeout(()=>btn.textContent="คัดลอก",1500);}).catch(()=>{btn.textContent="กดไม่ได้ — เลือกข้อความก๊อปเอง";setTimeout(()=>btn.textContent="คัดลอก",2500);});
 }
 function buildCaption(j){
   // ถ้าใบสั่งงานมีโน้ต (เงื่อนไขโปร เช่น "3 ถุง 100 บาท") → ใช้เป็นหัว hook + สินค้าโชว์ราคาปกติ
@@ -458,7 +421,7 @@ function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
       +'<input id="pd'+j.id+'" placeholder="กรอกชื่อโปรโมชั่นจาก Onepointofsale" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12.5px;width:230px">'
       +'<button onclick="printTags('+j.id+')" style="background:#6B4A33;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🖨 ป้ายชั้นวาง 80mm</button>'
       +'<span id="pmsg'+j.id+'" style="font-size:12px;color:#a32d2d;flex-basis:100%"></span>'
-      +(IS_ADMIN?'<button onclick="delJob('+j.id+')" style="background:transparent;color:#a32d2d;border:1px solid #e3b3b3;border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer;margin-left:auto">🗑 ลบใบสั่งงาน</button>':"")
+      +(IS_ADMIN?'<button onclick="delJob('+j.id+',this)" style="background:transparent;color:#a32d2d;border:1px solid #e3b3b3;border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer;margin-left:auto">🗑 ลบใบสั่งงาน</button>':"")
       +'</div>'):"";
     return '<div style="background:var(--surface);border:1px solid var(--gold-soft);border-radius:16px;padding:20px 22px;box-shadow:var(--sh-sm)">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-family:var(--f-head);font-size:17px">ใบสั่งงาน #'+j.id+'</b>'
