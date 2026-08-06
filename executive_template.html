@@ -205,6 +205,7 @@
       <div id="clr-actions" style="display:none;position:sticky;top:0;z-index:5;background:var(--surface-2);border:1px solid var(--gold,#C89535);border-radius:10px;padding:8px 14px;margin:0 0 10px;align-items:center;gap:12px">
         ✅ เลือกแล้ว <b id="clr-n" class="tnum">0</b> รายการ
         <button id="clr-make" style="background:var(--gold,#C89535);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">📋 ออกใบรายการโปร</button>
+        <button id="clr-send" style="background:#173D61;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">📣 ส่งให้การตลาด</button>
         <button id="clr-clear" style="background:transparent;color:var(--ink-3);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:12.5px;cursor:pointer">ล้างที่เลือก</button>
       </div>
       <div class="scroll">
@@ -318,6 +319,16 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("click",e=>{
   if(e.target.id==="clr-clear"){document.querySelectorAll(".clr-ck").forEach(b=>b.checked=false);clrUpdateBar();}
+  if(e.target.id==="clr-send"){
+    const sel=clrSelected(); if(!sel.length) return;
+    if(location.protocol!=="http:"&&location.protocol!=="https:"){alert("ปุ่มนี้ใช้ได้เมื่อเปิดผ่านพอร์ทัลเท่านั้น");return;}
+    const note=prompt("📝 โน้ตถึงทีมการตลาด (เช่น ทำโพสต์ FB + ป้ายหน้าร้าน ภายในศุกร์) — เว้นว่างได้:","");
+    if(note===null) return;
+    const items=sel.map(x=>({bc:x.bc,code:(x.cat||"").split(" ")[0],name:x.name,price:x.price,promo:x.promo,disc:x.disc,stock:x.stock}));
+    fetch("/api/marketing-jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({note:note,items:items})})
+      .then(r=>{if(r.ok){alert("ส่งให้การตลาดแล้ว ✅ ("+items.length+" รายการ) — ทีมเปิดดูได้ที่การ์ด \"งานการตลาด\"");}else{return r.json().then(j=>alert("ส่งไม่สำเร็จ: "+(j.error||r.status))).catch(()=>alert("ส่งไม่สำเร็จ ("+r.status+")"));}})
+      .catch(err=>alert("ส่งไม่สำเร็จ: "+err));
+  }
   if(e.target.id==="clr-make"){
     const sel=clrSelected(); if(!sel.length) return;
     const today=new Date().toLocaleDateString("th-TH",{day:"numeric",month:"long",year:"numeric"});

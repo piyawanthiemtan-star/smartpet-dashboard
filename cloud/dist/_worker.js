@@ -20,7 +20,7 @@ const TILES = [
   { key:"accounting", icon:"💰", title:"บัญชีและบุคคล",   desc:"บัญชี · การเงิน · งานบุคคล · ลงเวลา",     live:false },
   { key:"sales",      icon:"🧾", title:"ขายปลีก · ขายส่ง", desc:"ยอดขาย · ลูกค้า · ใบเสร็จ",                live:false },
   { key:"warehouse",  icon:"📦", title:"คลังและจัดส่ง",   desc:"LSMG Logistic · เส้นทาง · จัดส่ง · เก็บเงิน", live:true },
-  { key:"marketing",  icon:"📣", title:"งานการตลาด",     desc:"โปรโมชัน · แคมเปญ · วิเคราะห์ลูกค้า",     live:false },
+  { key:"marketing",  icon:"📣", title:"งานการตลาด",     desc:"ใบสั่งงานโปรโมชัน · สถานะงาน · แคมเปญ",     live:true },
 ];
 
 async function hmac(msg, secret) {
@@ -228,7 +228,9 @@ const HOME_SHELL = (title, nav, main) => `<!doctype html><html lang="th"><head><
 
 function homePage(sess, env) {
   const allowed = sess.sections || [];
-  const cards = TILES.filter((t) => allowed.includes(t.key)).map((t) => {
+  // การ์ดการตลาดเปิดให้ทีมจัดซื้อเห็นด้วย (Owner สั่ง 6 ส.ค.: คนเห็นใบสั่งงาน = owner + จัดซื้อ + การตลาด)
+  const visible = (t) => allowed.includes(t.key) || (t.key === "marketing" && (allowed.includes("purchasing") || sess.is_admin));
+  const cards = TILES.filter(visible).map((t) => {
     const badge = t.live ? `<span class="badge on">ใช้งานได้</span>` : `<span class="badge dev">กำลังพัฒนา</span>`;
     const cls = t.live ? "tile" : "tile soon";
     const href = t.live ? `/${t.key}` : "#";
@@ -271,6 +273,52 @@ function homePage(sess, env) {
   return new Response(HOME_SHELL("หน้าหลัก — LOVEPET", nav, main), { status: 200, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" } });
 }
 
+// ===== หน้างานการตลาด — คิวใบสั่งงานโปรโมชัน (owner สั่งจาก /executive · การตลาดรับงาน/ปิดงาน) =====
+function marketingPage(sess, env) {
+  const canEdit = sess.is_admin || canSee(sess, "marketing");
+  const brs = sessBranches(sess);
+  const brLabel = brs.includes("*") ? "ทุกสาขา" : brs.map(branchName).join(" · ");
+  const nav = `<div class="nav"><img class="logo" src="/logo.png" alt="LOVEPET GLOBALPLUS">
+<div class="co">บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด<small>LOVE PET GLOBAL PLUS CO., LTD.</small></div>
+<div class="who"><span class="chip"><b>${esc(sess.user)}</b> · ${esc(brLabel)}</span>
+<a class="out" href="/logout">ออกจากระบบ</a></div></div>`;
+  const main = `<h1 class="hi">📣 งานการตลาด</h1>
+<p class="lead">ใบสั่งงานโปรโมชันจากผู้บริหาร — ${canEdit ? "กดรับงาน/ปิดงานได้เลย" : "ดูอย่างเดียว"}</p>
+<div id="jobs" style="display:grid;gap:16px"><p style="color:var(--muted)">กำลังโหลด…</p></div>
+<p class="foot"><a href="/home" style="color:var(--gold-d);font-weight:600;text-decoration:none">← กลับหน้าหลัก</a></p>
+<script>
+const CAN_EDIT=${canEdit ? "true" : "false"};
+const ST={new:["🆕 งานใหม่","#a32d2d","#f7dede"],doing:["🔨 กำลังทำ","#8a5a12","#faeecd"],done:["✅ เสร็จแล้ว","#1c7a4a","#e3f4ea"]};
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function thDT(s){try{return new Date(s).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return s;}}
+function setStatus(id,st){fetch("/api/marketing-jobs/status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status:st})}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));}
+function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
+  const el=document.getElementById("jobs");
+  if(!Array.isArray(js)){el.innerHTML='<p style="color:#a32d2d">'+esc(js.error||"โหลดไม่สำเร็จ")+'</p>';return;}
+  if(!js.length){el.innerHTML='<p style="color:var(--muted)">ยังไม่มีใบสั่งงาน — ผู้บริหารสั่งได้จากหน้าคอนโซล (ติ๊กเลือกสินค้า → ส่งให้การตลาด)</p>';return;}
+  el.innerHTML=js.map(j=>{const t=ST[j.status]||ST.new;
+    const C='padding:6px 8px;border-bottom:1px solid var(--border);';
+    const rows=(j.items||[]).map((x,i)=>'<tr><td style="'+C+'text-align:center">'+(i+1)+'</td><td style="'+C+'font-family:monospace">'+esc(x.bc)+'</td><td style="'+C+'text-align:center">'+esc(x.code)+'</td><td style="'+C+'">'+esc(x.name)+'</td><td style="'+C+'text-align:right">'+x.price+'</td><td style="'+C+'text-align:right;font-weight:700">'+x.promo+'</td><td style="'+C+'text-align:center">'+x.disc+'%</td></tr>').join("");
+    const btns=CAN_EDIT?('<div style="display:flex;gap:8px;margin-top:12px">'
+      +(j.status==="new"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:#C89535;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🔨 รับงานนี้</button>':"")
+      +(j.status!=="done"?'<button onclick="setStatus('+j.id+',\\'done\\')" style="background:#2f7d4f;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">✅ ปิดงาน</button>':"")
+      +(j.status==="done"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer">↩︎ เปิดงานอีกครั้ง</button>':"")
+      +'</div>'):"";
+    return '<div style="background:var(--surface);border:1px solid var(--gold-soft);border-radius:16px;padding:20px 22px;box-shadow:var(--sh-sm)">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-family:var(--f-head);font-size:17px">ใบสั่งงาน #'+j.id+'</b>'
+      +'<span style="background:'+t[2]+';color:'+t[1]+';font-size:12px;font-weight:700;padding:3px 12px;border-radius:99px">'+t[0]+'</span>'
+      +'<span style="font-size:12.5px;color:var(--muted)">สั่งโดย '+esc(j.created_by)+' · '+thDT(j.created_at)+((j.status_by&&j.status!=="new")?' · อัปเดตโดย '+esc(j.status_by)+' '+thDT(j.status_at):'')+'</span></div>'
+      +(j.note?'<div style="margin:10px 0 4px;padding:10px 14px;background:#FFF8EC;border-left:3px solid #C89535;border-radius:6px;font-size:14px">📝 '+esc(j.note)+'</div>':"")
+      +'<div style="overflow-x:auto;margin-top:10px"><table style="border-collapse:collapse;width:100%;font-size:13px;min-width:560px"><thead><tr style="background:var(--navy);color:#fff">'
+      +'<th style="padding:6px 8px">#</th><th style="padding:6px 8px">บาร์โค้ด</th><th style="padding:6px 8px">รหัสประเภท</th><th style="padding:6px 8px;text-align:left">สินค้า</th><th style="padding:6px 8px">ราคาเดิม</th><th style="padding:6px 8px">ราคาโปร</th><th style="padding:6px 8px">ลด</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+      +btns+'</div>';
+  }).join("");
+}).catch(e=>{document.getElementById("jobs").innerHTML='<p style="color:#a32d2d">โหลดไม่สำเร็จ: '+esc(e)+'</p>';});}
+load();
+</`+`script>`;
+  return new Response(HOME_SHELL("งานการตลาด — LOVEPET", nav, main), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
 // ===== หน้าแผนกบัญชีและบุคคล — hub รวมเครื่องมือทีมบัญชี (ธีมเดียวกับ /home) =====
 function accountingPage(sess, env) {
   const attUrl = env.ATTENDANCE_URL || "https://piyawanthiemtan-star.github.io/attendance-app/attendance-app.html";
@@ -833,6 +881,43 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return env.ASSETS.fetch(new Request(new URL("/daily", url), request));   // clean URL → daily.html
     }
 
+    // ===== API ใบสั่งงานการตลาด (เก็บใน Supabase ตาราง marketing_jobs, worker ใช้ service key) =====
+    // เห็นได้: owner + จัดซื้อ + การตลาด · สั่งงาน: owner เท่านั้น · อัปเดตสถานะ: การตลาด + owner
+    if (path === "/api/marketing-jobs" || path === "/api/marketing-jobs/status") {
+      const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+      const sess = await readSession(request, env);
+      if (!sess) return J({ error: "กรุณาเข้าสู่ระบบ" }, 401);
+      const canView = sess.is_admin || canSee(sess, "marketing") || canSee(sess, "purchasing");
+      const canEdit = sess.is_admin || canSee(sess, "marketing");
+      if (!canView) return J({ error: "ไม่มีสิทธิ์" }, 403);
+      if (!env.SB_URL || !env.SB_SERVICE_KEY) return J({ error: "ยังไม่ได้ตั้ง secret SB_SERVICE_KEY บน Cloudflare" }, 500);
+      const sb = (p, init = {}) => fetch(env.SB_URL + "/rest/v1/" + p, { ...init,
+        headers: { "apikey": env.SB_SERVICE_KEY, "Authorization": "Bearer " + env.SB_SERVICE_KEY, "Content-Type": "application/json", ...(init.headers || {}) } });
+      if (request.method === "GET") {
+        const r = await sb("marketing_jobs?select=*&order=id.desc&limit=100");
+        return new Response(await r.text(), { status: r.status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+      }
+      if (request.method === "POST" && path === "/api/marketing-jobs") {
+        if (!sess.is_admin) return J({ error: "สั่งงานได้เฉพาะผู้บริหาร" }, 403);
+        let b; try { b = await request.json(); } catch { return J({ error: "bad json" }, 400); }
+        if (!Array.isArray(b.items) || !b.items.length) return J({ error: "ไม่มีรายการสินค้า" }, 400);
+        const items = b.items.slice(0, 200).map((x) => ({ bc: String(x.bc || ""), code: String(x.code || ""), name: String(x.name || "").slice(0, 200),
+          price: +x.price || 0, promo: +x.promo || 0, disc: +x.disc || 0, stock: +x.stock || 0 }));
+        const r = await sb("marketing_jobs", { method: "POST", headers: { "Prefer": "return=representation" },
+          body: JSON.stringify({ created_by: sess.user, note: String(b.note || "").slice(0, 500), items }) });
+        return new Response(await r.text(), { status: r.ok ? 200 : r.status, headers: { "Content-Type": "application/json" } });
+      }
+      if (request.method === "POST" && path === "/api/marketing-jobs/status") {
+        if (!canEdit) return J({ error: "อัปเดตสถานะได้เฉพาะทีมการตลาด/ผู้บริหาร" }, 403);
+        let b; try { b = await request.json(); } catch { return J({ error: "bad json" }, 400); }
+        if (!["new", "doing", "done"].includes(b.status) || !(+b.id > 0)) return J({ error: "ข้อมูลไม่ครบ" }, 400);
+        const r = await sb("marketing_jobs?id=eq." + (+b.id), { method: "PATCH",
+          body: JSON.stringify({ status: b.status, status_by: sess.user, status_at: new Date().toISOString() }) });
+        return J({ ok: r.ok }, r.ok ? 200 : r.status);
+      }
+      return J({ error: "method not allowed" }, 405);
+    }
+
     // ใบปิดยอดรายกะ ฉบับบัญชี — ไม่มีตัวเลขกำไรในไฟล์เลย (คนละไฟล์กับ /daily ของผู้บริหาร)
     if (execP === "accounting-daily") {
       const sess = await readSession(request, env);
@@ -857,6 +942,11 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       const sess = await readSession(request, env);
       if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/" + section) } });
       if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);
+      // การตลาด: เปิดให้จัดซื้อ+owner เข้าดูใบสั่งงานด้วย (ก่อนเช็ค canSee ปกติ)
+      if (section === "marketing") {
+        if (!(sess.is_admin || canSee(sess, "marketing") || canSee(sess, "purchasing"))) return forbidden(section, sess);
+        return marketingPage(sess, env);
+      }
       if (!canSee(sess, section)) return forbidden(section, sess);
       // จัดซื้อ: สลับสาขาด้วย ?b=ML2 (คนละไฟล์ ไม่ยัดข้อมูล 2 สาขาไว้ด้วยกัน ไฟล์จะใหญ่เกินไป)
       // ขอ ASSETS ด้วย "clean URL" เสมอ — ถ้าขอ .html ตรงๆ Pages จะ 308 กลับมาแล้ววนลูป
