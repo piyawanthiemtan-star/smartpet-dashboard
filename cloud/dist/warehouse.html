@@ -589,7 +589,7 @@
   .amt-total { font-size: 12.5px; color: var(--primary-dark); font-weight: 600; }
 
   .home-greet { padding: 4px 4px 16px; }
-  .home-greet-title { font-size: 22px; font-weight: 700; }
+  .home-greet-title { font-size: 26px; font-weight: 700; }
   .home-greet-date { font-size: 13px; color: var(--muted); margin-top: 3px; }
   .home-stats {
     display: grid;
@@ -626,8 +626,9 @@
   .home-menu-card:active { transform: scale(0.96); }
   a.home-menu-card { display: block; text-decoration: none; }
   .home-menu-card .hm-icon { display: flex; }
-  .home-menu-card .hm-title { font-size: 14px; font-weight: 700; margin-top: 9px; line-height: 1.3; }
-  .home-menu-card .hm-sub { font-size: 11px; opacity: 0.9; margin-top: 3px; }
+  .home-menu-card .hm-title { font-size: 17px; font-weight: 700; margin-top: 9px; line-height: 1.3; }
+  .home-menu-card .hm-sub { font-size: 12px; opacity: 0.9; margin-top: 3px; }
+  .menu-sec-title { font-family: 'Poppins', 'LINE Seed Sans TH', 'Noto Sans Thai', sans-serif; font-size: 18px; font-weight: 700; color: var(--muted-strong); margin: 18px 2px 10px; }
   .home-menu-card.wide {
     grid-column: 1 / -1;
     display: flex;
@@ -901,7 +902,7 @@
       <div class="home-greet-date" id="homeDate"></div>
     </div>
     <div class="home-stats" id="homeStats"></div>
-    <div class="home-menu" id="homeMenu"></div>
+    <div id="homeMenu"></div>
   </div>
 
   <!-- LIST VIEW -->
@@ -1301,12 +1302,12 @@ function renderHome() {
   const totalAmt = Object.values(dailyAmounts).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
 
   const stats = [
-    { icon: iconOnly('store', 22), value: STORES.length, label: 'Customer List', grad: ['#0C223A', '#173D61'] },
-    { icon: iconOnly('route', 22), value: customRoute.length, label: 'ร้านในเส้นทางที่วางไว้', grad: ['#C89535', '#9D681E'] },
-    { icon: iconOnly('coin', 22), value: '฿' + fmtBaht(totalAmt), label: 'ยอดเก็บวันนี้', grad: ['#E4B65C', '#9D681E'] },
+    { icon: iconOnly('store', 22), value: STORES.length, label: 'Customer List', color: '#0C223A' },
+    { icon: iconOnly('route', 22), value: customRoute.length, label: 'ร้านในเส้นทางที่วางไว้', color: '#9D681E' },
+    { icon: iconOnly('coin', 22), value: '฿' + fmtBaht(totalAmt), label: 'ยอดเก็บวันนี้', color: '#2f7d4f' },
   ];
   document.getElementById('homeStats').innerHTML = stats.map(st => `
-    <div class="home-stat-card" style="background:linear-gradient(135deg, ${st.grad[0]}, ${st.grad[1]})">
+    <div class="home-stat-card" style="background:${st.color}">
       <div class="hs-icon">${st.icon}</div>
       <div class="hs-value">${st.value}</div>
       <div class="hs-label">${st.label}</div>
@@ -1314,22 +1315,27 @@ function renderHome() {
   `).join('');
 
   const menu = [
-    { icon: iconOnly('list', 24), title: 'Customer List', sub: 'ค้นหา · เบอร์โทร · แผนที่', view: 'list', grad: ['#89694C', '#6B4A33'] },
-    { icon: iconOnly('map', 24), title: 'แผนที่ภาพรวม', sub: 'ดูหมุดร้านค้าทั้งหมด', view: 'map', grad: ['#0C223A', '#173D61'] },
-    { icon: iconOnly('edit', 24), title: 'กำหนดเส้นทางเอง', sub: 'เลือกร้าน + จัดลำดับเอง', view: 'custom', grad: ['#D8B479', '#C89535'] },
-    { icon: iconOnly('store', 24), title: 'จัดการร้านสาขา', sub: 'เพิ่ม/แก้ไข · สำรองข้อมูล', view: 'manage', grad: ['#E4B65C', '#9D681E'] },
-    { icon: iconOnly('list', 24), title: 'ใบเบิกสินค้า ML2', sub: 'ใบเบิกรายวันจากคลัง ML3', href: '/requisition', grad: ['#C89535', '#9D681E'] },
-    { icon: iconOnly('card', 24), title: 'ช่องทางชำระเงิน', sub: 'QR / เลขบัญชี K Bank', view: 'payment', grad: ['#001A37', '#173D61'], wide: true },
+    { icon: iconOnly('list', 24), title: 'Customer List', sub: 'ค้นหา · เบอร์โทร · แผนที่', view: 'list', color: '#6B4A33', section: 2 },
+    { icon: iconOnly('map', 24), title: 'แผนที่ภาพรวม', sub: 'ดูหมุดร้านค้าทั้งหมด', view: 'map', color: '#173D61', section: 2 },
+    { icon: iconOnly('edit', 24), title: 'กำหนดเส้นทางเอง', sub: 'เลือกร้าน + จัดลำดับเอง', view: 'custom', color: '#C46A2B', section: 2 },
+    { icon: iconOnly('store', 24), title: 'จัดการร้านสาขา', sub: 'เพิ่ม/แก้ไข · สำรองข้อมูล', view: 'manage', color: '#2f7d4f', section: 2 },
+    { icon: iconOnly('list', 24), title: 'ใบเบิกสินค้า ML2', sub: 'ใบเบิกรายวันจากคลัง ML3', href: '/requisition', color: '#C89535', section: 1, wide: true },
+    { icon: iconOnly('card', 24), title: 'ช่องทางชำระเงิน', sub: 'QR / เลขบัญชี K Bank', view: 'payment', color: '#001A37', section: 2, wide: true },
   ];
-  document.getElementById('homeMenu').innerHTML = menu.map(m => {
+  const cardHtml = m => {
     const inner = `
       <div class="hm-icon">${m.icon}</div>
       <div class="hm-title">${m.title}</div>
       <div class="hm-sub">${m.sub}</div>`;
-    const style = `background:linear-gradient(135deg, ${m.grad[0]}, ${m.grad[1]})`;
+    const style = `background:${m.color}`;
     if (m.href) return `<a class="home-menu-card${m.wide ? ' wide' : ''}" style="${style}" href="${m.href}">${inner}</a>`;
     return `<button class="home-menu-card${m.wide ? ' wide' : ''}" style="${style}" onclick="switchTab('${m.view}')">${inner}</button>`;
-  }).join('');
+  };
+  const sec = (title, items) => items.length
+    ? `<div class="menu-sec-title">${title}</div><div class="home-menu">${items.map(cardHtml).join('')}</div>` : '';
+  document.getElementById('homeMenu').innerHTML =
+      sec('ส่วนที่ 1 · เบิกสินค้า', menu.filter(m => m.section === 1))
+    + sec('ส่วนที่ 2 · งานจัดส่ง', menu.filter(m => m.section === 2));
 }
 function switchTab(view) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
