@@ -289,6 +289,7 @@ function marketingPage(sess, env) {
 <p class="foot"><a href="/home" style="color:var(--gold-d);font-weight:600;text-decoration:none">← กลับหน้าหลัก</a></p>
 <script>
 const CAN_EDIT=${canEdit ? "true" : "false"};
+const IS_ADMIN=${sess.is_admin ? "true" : "false"};
 const ST={new:["🆕 งานใหม่","#a32d2d","#f7dede"],doing:["🔨 กำลังทำ","#8a5a12","#faeecd"],done:["✅ เสร็จแล้ว","#1c7a4a","#e3f4ea"]};
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function thDT(s){try{return new Date(s).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return s;}}
@@ -301,6 +302,10 @@ function setStatus(id,st){
     body.pos_promo=pp.trim();
   }
   fetch("/api/marketing-jobs/status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));
+}
+function delJob(id){
+  if(!confirm("ลบใบสั่งงาน #"+id+" ถาวรเลยหรือไม่? (กู้คืนไม่ได้)")) return;
+  fetch("/api/marketing-jobs/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));
 }
 function copyPre(btn){
   const t=btn.parentElement.querySelector("pre").textContent;
@@ -338,6 +343,7 @@ function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
       +(j.status==="new"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:#C89535;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🔨 รับงานนี้</button>':"")
       +(j.status!=="done"?'<button onclick="setStatus('+j.id+',\\'done\\')" style="background:#2f7d4f;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">✅ ปิดงาน</button>':"")
       +(j.status==="done"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer">↩︎ เปิดงานอีกครั้ง</button>':"")
+      +(IS_ADMIN?'<button onclick="delJob('+j.id+')" style="background:transparent;color:#a32d2d;border:1px solid #e3b3b3;border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer;margin-left:auto">🗑 ลบใบสั่งงาน</button>':"")
       +'</div>'):"";
     return '<div style="background:var(--surface);border:1px solid var(--gold-soft);border-radius:16px;padding:20px 22px;box-shadow:var(--sh-sm)">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-family:var(--f-head);font-size:17px">ใบสั่งงาน #'+j.id+'</b>'
@@ -920,7 +926,7 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
 
     // ===== API ใบสั่งงานการตลาด (เก็บใน Supabase ตาราง marketing_jobs, worker ใช้ service key) =====
     // เห็นได้: owner + จัดซื้อ + การตลาด · สั่งงาน: owner เท่านั้น · อัปเดตสถานะ: การตลาด + owner
-    if (path === "/api/marketing-jobs" || path === "/api/marketing-jobs/status") {
+    if (path === "/api/marketing-jobs" || path === "/api/marketing-jobs/status" || path === "/api/marketing-jobs/delete") {
       const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
       const sess = await readSession(request, env);
       if (!sess) return J({ error: "กรุณาเข้าสู่ระบบ" }, 401);
@@ -956,6 +962,14 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
           patch.pos_promo = pp.slice(0, 200);
         }
         const r = await sb("marketing_jobs?id=eq." + (+b.id), { method: "PATCH", body: JSON.stringify(patch) });
+        return J({ ok: r.ok }, r.ok ? 200 : r.status);
+      }
+      // ลบใบสั่งงาน — เฉพาะ owner/admin เท่านั้น (ทีมการตลาดลบไม่ได้)
+      if (request.method === "POST" && path === "/api/marketing-jobs/delete") {
+        if (!sess.is_admin) return J({ error: "ลบใบสั่งงานได้เฉพาะผู้บริหาร" }, 403);
+        let b; try { b = await request.json(); } catch { return J({ error: "bad json" }, 400); }
+        if (!(+b.id > 0)) return J({ error: "ข้อมูลไม่ครบ" }, 400);
+        const r = await sb("marketing_jobs?id=eq." + (+b.id), { method: "DELETE" });
         return J({ ok: r.ok }, r.ok ? 200 : r.status);
       }
       return J({ error: "method not allowed" }, 405);
