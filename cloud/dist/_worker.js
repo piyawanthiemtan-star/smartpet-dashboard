@@ -316,15 +316,31 @@ function buildCaption(j){
   return "🔥 โปรโมชันพิเศษ ลดจริง คุ้มจริง! 🔥\\n\\n"+lines.join("\\n")+"\\n\\n📍 ของมีจำนวนจำกัด หมดแล้วหมดเลย\\n📲 สอบถาม/สั่งจอง: ทักแชทเพจ หรือ LINE ของร้าน\\n\\n#เลยสมาร์ทเพ็ทช็อป #โปรโมชันสัตว์เลี้ยง #LOVEPET #อาหารสัตว์ราคาถูก";
 }
 function buildPrompt(j){
-  const its=(j.items||[]).map(x=>x.name+" ราคาพิเศษ "+x.promo+" บาท (ลด "+x.disc+"%)").join(" · ");
-  return "สร้างภาพโปสเตอร์โปรโมชันร้านสัตว์เลี้ยง สไตล์พรีเมียม โทนสีกรมท่า-ทอง (navy #0C223A + gold #C89535) พื้นหลังสะอาด หัวเรื่องใหญ่ 'โปรโมชันพิเศษ' แสดงสินค้า "+(j.items||[]).length+" รายการ: "+its+" · มีป้ายเปอร์เซ็นต์ส่วนลดสีทองโดดเด่น ตัวหนังสือภาษาไทยอ่านง่าย จัดวางแบบโปสเตอร์ขายของมืออาชีพ ขนาดภาพ 1080x1080 สำหรับโพสต์ Facebook";
+  // แม่แบบประจำร้าน — ถอดจากโปสเตอร์ต้นแบบของ Owner (6 ส.ค. 2569)
+  const st={ML3:["โกดังเลยสมาร์ทเพ็ทช็อป"],ML2:["เลยสมาร์ทเพ็ทช็อป"]}[j.branch]||["โกดังเลยสมาร์ทเพ็ทช็อป / เลยสมาร์ทเพ็ทช็อป"];
+  const its=(j.items||[]).map(x=>"- "+x.name+" ราคาโปร "+x.promo+" บาท (ราคาปกติ "+x.price+" มีเส้นแดงขีดฆ่า, ลด "+x.disc+"%)").join("\\n");
+  const L=[
+    "สร้างภาพโปสเตอร์โปรโมชันร้านเพ็ทช็อป สไตล์การ์ตูนสดใสระดับมืออาชีพ ขนาด 4:3",
+    "พื้นหลัง: ภายในร้านเพ็ทช็อปจริง ชั้นวางสินค้าเต็มผนัง เบลอแบบ bokeh โทนอุ่นสว่าง",
+    "ป้ายหัวเรื่องสีแดงมนโค้ง คำว่า 'โปรโมชั่น' ตัวอักษรไทยสีขาวหนาพิเศษ มีขอบเข้มและเงาชัด พร้อมไอคอนโทรโข่ง 3 มิติสีแดง-ขาว มีเส้นประกายรอบ",
+    "สินค้าที่ต้องแสดง ("+(j.items||[]).length+" รายการ):",
+    its,
+    "จัดวางสินค้าเรียงเด่นบนแท่นไม้กลม คมชัดตัดจากพื้นหลัง มีแมวเปอร์เซียขนฟูสีส้มหน้ายิ้มโผล่มุมล่างซ้าย",
+    "ราคาโปรเป็นตัวเลขสีแดงใหญ่ที่สุดในภาพ ขอบขาวหนา มีเงาชัด อยู่บนป้ายครีมขอบมน",
+    "แถบล่างสุดสีครีม: ชื่อร้าน '"+st[0]+"'",
+    "โลโก้บริษัท LOVEPET GLOBALPLUS CO.,LTD. มุมขวาบน",
+    "ตกแต่ง: รอยอุ้งเท้าแมวสีส้ม-เหลืองกระจายรอบภาพ ประกายดาวเหลืองทอง แสงวิ้งๆ",
+    "โทนสีรวม: แดงสด ครีม น้ำตาล ส้มอบอุ่น ตัวหนังสือไทยทุกจุดคมชัดอ่านง่าย"
+  ];
+  return L.join("\\n");
 }
 function toolkit(j){
   const box='background:#FAF6F1;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:6px 0 12px;white-space:pre-wrap;font-size:13px;line-height:1.6;font-family:inherit';
   const cbtn='background:transparent;color:#9D681E;border:1px solid #D8B479;border-radius:6px;padding:3px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;margin-left:8px';
   return '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:#173D61">🧰 ชุดเครื่องมือทีมการตลาด (คอนเทนท์ · Prompt สื่อ · ขั้นตอน)</summary>'
     +'<div style="margin-top:12px"><b>✍️ 1) ร่างคอนเทนท์</b> (คัดลอกไปแก้/เติมได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildCaption(j))+'</pre></div>'
-    +'<div><b>🎨 2) Prompt สร้างสื่อ</b> (วางในเครื่องมือสร้างภาพ AI ได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildPrompt(j))+'</pre></div>'
+    +'<div><b>🎨 2) Prompt สร้างสื่อ</b> (วางในเครื่องมือสร้างภาพ AI ได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildPrompt(j))+'</pre>'
+    +'<div style="font-size:12px;color:#8a5a12;margin:-6px 0 12px">💡 เคล็ดลับ: ตัวหนังสือไทยจาก AI มักเพี้ยน — ให้ AI สร้างฉาก แล้วพิมพ์ข้อความไทยทับเองใน Canva จะคมชัด 100%</div></div>'
     +'<div><b>📌 3) ขั้นตอนที่ต้องทำ</b><ol style="margin:6px 0 4px;padding-left:22px;line-height:1.9">'
     +'<li>เขียน/ปรับคอนเทนท์จากร่างข้อ 1</li>'
     +'<li>สร้างภาพสื่อด้วย Prompt ข้อ 2</li>'
@@ -947,7 +963,8 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
         const items = b.items.slice(0, 200).map((x) => ({ bc: String(x.bc || ""), code: String(x.code || ""), name: String(x.name || "").slice(0, 200),
           price: +x.price || 0, promo: +x.promo || 0, disc: +x.disc || 0, stock: +x.stock || 0 }));
         const r = await sb("marketing_jobs", { method: "POST", headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ created_by: sess.user, note: String(b.note || "").slice(0, 500), items }) });
+          body: JSON.stringify({ created_by: sess.user, note: String(b.note || "").slice(0, 500), items,
+            branch: String(b.branch || "").slice(0, 10) }) });
         return new Response(await r.text(), { status: r.ok ? 200 : r.status, headers: { "Content-Type": "application/json" } });
       }
       if (request.method === "POST" && path === "/api/marketing-jobs/status") {
