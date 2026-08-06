@@ -303,6 +303,34 @@ function setStatus(id,st){
   }
   fetch("/api/marketing-jobs/status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));
 }
+const JOBS={};
+function buildScenePrompt(j){
+  // ภาษาอังกฤษ = โมเดลภาพเข้าใจดีสุด · สั่งฉากเปล่าไม่มีตัวหนังสือ (ไทยจาก AI เพี้ยนเสมอ ทีมพิมพ์ทับใน Canva)
+  const n=(j.items||[]).length||3;
+  return "Professional promotional poster background for a pet shop, bright cheerful cartoon-commercial style, "
+    +"blurred pet store shelves bokeh background with warm lighting, cute fluffy orange Persian cat smiling and peeking from the bottom left corner, "
+    +"round wooden podium displaying "+n+" generic pet product bags standing upright, "
+    +"large empty rounded red banner at the top with thick white outline and drop shadow, red and white 3D megaphone icon beside it, "
+    +"empty cream colored rounded price badges on the right side, "
+    +"orange and yellow cat paw prints and golden sparkle stars scattered as decoration, "
+    +"color palette bright red cream brown warm orange, 4:3 composition, no text, no letters, no words";
+}
+function genImg(id,btn){
+  const j=JOBS[id]; if(!j) return;
+  btn.disabled=true; btn.textContent="⏳ กำลังสร้าง... (~15-30 วิ)";
+  fetch("/api/marketing-jobs/image",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:buildScenePrompt(j)})})
+    .then(r=>r.json().then(d=>({ok:r.ok,d})))
+    .then(({ok,d})=>{
+      btn.disabled=false; btn.textContent="🎨 สร้างภาพเลย";
+      const box=document.getElementById("img"+id);
+      if(!ok||!d.image){box.innerHTML='<p style="color:#a32d2d;font-size:13px">'+esc(d.error||"ไม่สำเร็จ")+'</p>';return;}
+      const src="data:image/jpeg;base64,"+d.image;
+      box.innerHTML='<img src="'+src+'" style="max-width:100%;border-radius:10px;border:1px solid var(--border);margin-top:8px" alt="ภาพฉากโปสเตอร์">'
+        +'<div style="margin-top:6px"><a download="promo-job'+id+'.jpg" href="'+src+'" style="color:#9D681E;font-weight:700;font-size:13px">⬇️ ดาวน์โหลดภาพ</a>'
+        +' <span style="font-size:12px;color:var(--muted)">· ไม่ถูกใจกดสร้างใหม่ได้ (ได้ภาพใหม่ทุกครั้ง) · เอาเข้า Canva แล้วพิมพ์ข้อความไทย+แปะรูปสินค้าจริงทับ</span></div>';
+    })
+    .catch(e=>{btn.disabled=false;btn.textContent="🎨 สร้างภาพเลย";alert("สร้างภาพไม่สำเร็จ: "+e);});
+}
 function delJob(id){
   if(!confirm("ลบใบสั่งงาน #"+id+" ถาวรเลยหรือไม่? (กู้คืนไม่ได้)")) return;
   fetch("/api/marketing-jobs/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})}).then(r=>r.ok?load():r.json().then(j=>alert(j.error||"ไม่สำเร็จ")));
@@ -341,9 +369,10 @@ function toolkit(j){
     +'<div style="margin-top:12px"><b>✍️ 1) ร่างคอนเทนท์</b> (คัดลอกไปแก้/เติมได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildCaption(j))+'</pre></div>'
     +'<div><b>🎨 2) Prompt สร้างสื่อ</b> (วางในเครื่องมือสร้างภาพ AI ได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildPrompt(j))+'</pre>'
     +'<div style="font-size:12px;color:#8a5a12;margin:-6px 0 12px">💡 เคล็ดลับ: ตัวหนังสือไทยจาก AI มักเพี้ยน — ให้ AI สร้างฉาก แล้วพิมพ์ข้อความไทยทับเองใน Canva จะคมชัด 100%</div></div>'
-    +'<div><b>📌 3) ขั้นตอนที่ต้องทำ</b><ol style="margin:6px 0 4px;padding-left:22px;line-height:1.9">'
+    +'<div style="margin-bottom:12px"><b>🖼️ 3) สร้างภาพฉากอัตโนมัติ</b> <button style="background:#173D61;color:#fff;border:none;border-radius:8px;padding:6px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer;margin-left:8px" onclick="genImg('+j.id+',this)">🎨 สร้างภาพเลย</button><div id="img'+j.id+'"></div></div>'
+    +'<div><b>📌 4) ขั้นตอนที่ต้องทำ</b><ol style="margin:6px 0 4px;padding-left:22px;line-height:1.9">'
     +'<li>เขียน/ปรับคอนเทนท์จากร่างข้อ 1</li>'
-    +'<li>สร้างภาพสื่อด้วย Prompt ข้อ 2</li>'
+    +'<li>สร้างภาพ (ปุ่มข้อ 3) หรือใช้ Prompt ข้อ 2 กับเครื่องมืออื่น → แต่งใน Canva</li>'
     +'<li><b>โพสต์ลงเพจ Facebook ของร้าน</b></li>'
     +'<li>ตั้งโปรโมชั่นใน POS แล้วกลับมากด "✅ ปิดงาน" <b>พร้อมกรอกชื่อโปรโมชั่นที่ตั้งใน POS</b></li>'
     +'</ol></div></details>';
@@ -352,6 +381,7 @@ function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
   const el=document.getElementById("jobs");
   if(!Array.isArray(js)){el.innerHTML='<p style="color:#a32d2d">'+esc(js.error||"โหลดไม่สำเร็จ")+'</p>';return;}
   if(!js.length){el.innerHTML='<p style="color:var(--muted)">ยังไม่มีใบสั่งงาน — ผู้บริหารสั่งได้จากหน้าคอนโซล (ติ๊กเลือกสินค้า → ส่งให้การตลาด)</p>';return;}
+  js.forEach(j=>{JOBS[j.id]=j;});
   el.innerHTML=js.map(j=>{const t=ST[j.status]||ST.new;
     const C='padding:6px 8px;border-bottom:1px solid var(--border);';
     const rows=(j.items||[]).map((x,i)=>'<tr><td style="'+C+'text-align:center">'+(i+1)+'</td><td style="'+C+'font-family:monospace">'+esc(x.bc)+'</td><td style="'+C+'text-align:center">'+esc(x.code)+'</td><td style="'+C+'">'+esc(x.name)+'</td><td style="'+C+'text-align:right">'+x.price+'</td><td style="'+C+'text-align:right;font-weight:700">'+x.promo+'</td><td style="'+C+'text-align:center">'+x.disc+'%</td></tr>').join("");
@@ -942,7 +972,7 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
 
     // ===== API ใบสั่งงานการตลาด (เก็บใน Supabase ตาราง marketing_jobs, worker ใช้ service key) =====
     // เห็นได้: owner + จัดซื้อ + การตลาด · สั่งงาน: owner เท่านั้น · อัปเดตสถานะ: การตลาด + owner
-    if (path === "/api/marketing-jobs" || path === "/api/marketing-jobs/status" || path === "/api/marketing-jobs/delete") {
+    if (path === "/api/marketing-jobs" || path === "/api/marketing-jobs/status" || path === "/api/marketing-jobs/delete" || path === "/api/marketing-jobs/image") {
       const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
       const sess = await readSession(request, env);
       if (!sess) return J({ error: "กรุณาเข้าสู่ระบบ" }, 401);
@@ -980,6 +1010,22 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
         }
         const r = await sb("marketing_jobs?id=eq." + (+b.id), { method: "PATCH", body: JSON.stringify(patch) });
         return J({ ok: r.ok }, r.ok ? 200 : r.status);
+      }
+      // สร้างภาพฉากโปสเตอร์ด้วย Workers AI (flux-1-schnell, โควตาฟรีรายวันของ Cloudflare)
+      if (request.method === "POST" && path === "/api/marketing-jobs/image") {
+        if (!canEdit) return J({ error: "สร้างภาพได้เฉพาะทีมการตลาด/ผู้บริหาร" }, 403);
+        if (!env.AI) return J({ error: "ยังไม่ได้ผูก Workers AI บน Cloudflare (Settings → Bindings → Workers AI ชื่อ AI)" }, 500);
+        let b; try { b = await request.json(); } catch { return J({ error: "bad json" }, 400); }
+        const prompt = String(b.prompt || "").slice(0, 2000);
+        if (!prompt) return J({ error: "ไม่มี prompt" }, 400);
+        try {
+          const out = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt, steps: 8 });
+          const img = (out && out.image) ? out.image : null;
+          if (!img) return J({ error: "โมเดลไม่คืนภาพ ลองใหม่อีกครั้ง" }, 500);
+          return J({ image: img });
+        } catch (e) {
+          return J({ error: "สร้างภาพไม่สำเร็จ: " + ((e && e.message) || e) }, 500);
+        }
       }
       // ลบใบสั่งงาน — เฉพาะ owner/admin เท่านั้น (ทีมการตลาดลบไม่ได้)
       if (request.method === "POST" && path === "/api/marketing-jobs/delete") {
