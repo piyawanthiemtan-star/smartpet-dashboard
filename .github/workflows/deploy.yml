@@ -5,6 +5,9 @@ on:
   repository_dispatch:        # agent เครื่องหน้าร้านยิง event หลังอัปโหลด backup
                               # · master-updated = พอร์ทัลยิงหลังอัปไฟล์ Master ใหม่
     types: [new-backup, master-updated]
+  push:                       # แก้ไฟล์เว็บใน repo แล้วขึ้นเว็บทันที ไม่ต้องรอรอบ cron
+    branches: [main]
+    paths: ['cloud/dist/**']
   schedule:
     - cron: '0 */2 * * *'     # ทุก 2 ชม. (UTC) — สำรอง
 

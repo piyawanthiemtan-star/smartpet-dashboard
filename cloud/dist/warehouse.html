@@ -624,6 +624,7 @@
     font-family: inherit;
   }
   .home-menu-card:active { transform: scale(0.96); }
+  a.home-menu-card { display: block; text-decoration: none; }
   .home-menu-card .hm-icon { display: flex; }
   .home-menu-card .hm-title { font-size: 14px; font-weight: 700; margin-top: 9px; line-height: 1.3; }
   .home-menu-card .hm-sub { font-size: 11px; opacity: 0.9; margin-top: 3px; }
@@ -1317,15 +1318,18 @@ function renderHome() {
     { icon: iconOnly('map', 24), title: 'แผนที่ภาพรวม', sub: 'ดูหมุดร้านค้าทั้งหมด', view: 'map', grad: ['#0C223A', '#173D61'] },
     { icon: iconOnly('edit', 24), title: 'กำหนดเส้นทางเอง', sub: 'เลือกร้าน + จัดลำดับเอง', view: 'custom', grad: ['#D8B479', '#C89535'] },
     { icon: iconOnly('store', 24), title: 'จัดการร้านสาขา', sub: 'เพิ่ม/แก้ไข · สำรองข้อมูล', view: 'manage', grad: ['#E4B65C', '#9D681E'] },
+    { icon: iconOnly('list', 24), title: 'ใบเบิกสินค้า ML2', sub: 'ใบเบิกรายวันจากคลัง ML3', href: '/requisition', grad: ['#C89535', '#9D681E'] },
     { icon: iconOnly('card', 24), title: 'ช่องทางชำระเงิน', sub: 'QR / เลขบัญชี K Bank', view: 'payment', grad: ['#001A37', '#173D61'], wide: true },
   ];
-  document.getElementById('homeMenu').innerHTML = menu.map(m => `
-    <button class="home-menu-card${m.wide ? ' wide' : ''}" style="background:linear-gradient(135deg, ${m.grad[0]}, ${m.grad[1]})" onclick="switchTab('${m.view}')">
+  document.getElementById('homeMenu').innerHTML = menu.map(m => {
+    const inner = `
       <div class="hm-icon">${m.icon}</div>
       <div class="hm-title">${m.title}</div>
-      <div class="hm-sub">${m.sub}</div>
-    </button>
-  `).join('');
+      <div class="hm-sub">${m.sub}</div>`;
+    const style = `background:linear-gradient(135deg, ${m.grad[0]}, ${m.grad[1]})`;
+    if (m.href) return `<a class="home-menu-card${m.wide ? ' wide' : ''}" style="${style}" href="${m.href}">${inner}</a>`;
+    return `<button class="home-menu-card${m.wide ? ' wide' : ''}" style="${style}" onclick="switchTab('${m.view}')">${inner}</button>`;
+  }).join('');
 }
 function switchTab(view) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

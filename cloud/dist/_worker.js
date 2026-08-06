@@ -808,6 +808,15 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return env.ASSETS.fetch(new Request(new URL("/daily", url), request));   // clean URL → daily.html
     }
 
+    // ใบเบิกสินค้า ML2 รายวัน — สิทธิ์เดียวกับการ์ดคลังและจัดส่ง (ไฟล์มาจาก ml2_report.py เครื่อง Owner)
+    if (execP === "requisition") {
+      const sess = await readSession(request, env);
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/requisition") } });
+      if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);
+      if (!canSee(sess, "warehouse")) return forbidden("warehouse", sess);
+      return env.ASSETS.fetch(new Request(new URL("/requisition", url), request));   // clean URL → requisition.html
+    }
+
     // แผนกงาน = ต้องล็อกอิน + มีสิทธิ์
     const section = path.replace(/^\/+/, "").replace(/\.html$/, "").split("/")[0];
     if (SECTIONS.includes(section)) {
