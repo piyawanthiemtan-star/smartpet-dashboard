@@ -5,25 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LSMG Logistic</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
 <style>
+  @font-face{font-family:'LINE Seed Sans TH';font-weight:400;font-display:swap;src:url(/fonts/LINESeedSansTH_W_Rg.woff2) format('woff2')}
+  @font-face{font-family:'LINE Seed Sans TH';font-weight:500;font-display:swap;src:url(/fonts/LINESeedSansTH_W_Rg.woff2) format('woff2')}
+  @font-face{font-family:'LINE Seed Sans TH';font-weight:600;font-display:swap;src:url(/fonts/LINESeedSansTH_W_Bd.woff2) format('woff2')}
+  @font-face{font-family:'LINE Seed Sans TH';font-weight:700;font-display:swap;src:url(/fonts/LINESeedSansTH_W_Bd.woff2) format('woff2')}
   :root {
-    --primary: #fe3943;
-    --primary-dark: #fe3943;
-    --primary-light: rgba(254,57,67,0.10);
-    --secondary: #0188fb;
-    --secondary-dark: #0188fb;
-    --secondary-light: rgba(1,136,251,0.10);
-    --success: #0188fb;
-    --success-dark: #0188fb;
-    --focus: #0188fb;
-    --bg: #dde5e8;
+    --primary: #0C223A;
+    --primary-dark: #001A37;
+    --primary-light: rgba(12,34,58,0.10);
+    --secondary: #C89535;
+    --secondary-dark: #9D681E;
+    --secondary-light: rgba(200,149,53,0.12);
+    --success: #2f7d4f;
+    --success-dark: #26653F;
+    --focus: #9D681E;
+    --bg: #F5ECE3;
     --card-bg: #ffffff;
-    --pearl: #dde5e8;
-    --text: #465864;
-    --muted: #8d9cac;
-    --muted-strong: #465864;
-    --border: rgba(70,88,100,0.18);
-    --divider-soft: rgba(70,88,100,0.08);
+    --pearl: #F5ECE3;
+    --text: #25282C;
+    --muted: #89694C;
+    --muted-strong: #4B1F0E;
+    --border: #CFC1B3;
+    --divider-soft: rgba(75,31,14,0.08);
     --line1: #0188fb;
     --line2: #fd9e42;
     --line3: #e9c38c;
@@ -39,7 +44,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", Sarabun, Tahoma, sans-serif;
+    font-family: 'Inter', 'LINE Seed Sans TH', 'Noto Sans Thai', Sarabun, Tahoma, sans-serif;
     background: var(--bg);
     color: var(--text);
     -webkit-tap-highlight-color: transparent;
@@ -60,11 +65,11 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    box-shadow: 0 4px 16px rgba(254,57,67,0.25);
+    box-shadow: 0 4px 16px rgba(12,34,58,0.25);
   }
   header h1 {
     margin: 0 0 4px;
-    font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Noto Sans Thai", Sarabun, sans-serif;
+    font-family: 'Poppins', 'LINE Seed Sans TH', 'Noto Sans Thai', Sarabun, sans-serif;
     font-size: 19px;
     font-weight: 600;
     letter-spacing: -0.2px;
@@ -211,7 +216,7 @@
   .btn-map {
     background: var(--secondary-light);
     color: var(--secondary-dark);
-    border: 1px solid rgba(1,136,251,0.3);
+    border: 1px solid rgba(200,149,53,0.35);
   }
   .btn-disabled {
     background: var(--divider-soft);
@@ -440,7 +445,7 @@
     font-weight: 600;
     cursor: pointer;
     margin-bottom: 10px;
-    box-shadow: 0 6px 16px rgba(254,57,67,0.35);
+    box-shadow: 0 6px 16px rgba(12,34,58,0.35);
   }
   .optimize-btn:disabled {
     background: var(--divider-soft);
@@ -457,7 +462,7 @@
     text-decoration: none;
     white-space: nowrap;
     flex: 0 0 auto;
-    box-shadow: 0 4px 12px rgba(254,57,67,0.3);
+    box-shadow: 0 4px 12px rgba(12,34,58,0.3);
   }
   .combined-btn.disabled {
     background: var(--divider-soft);
@@ -679,7 +684,7 @@
   .deliver-toggle.done {
     background: var(--secondary-light);
     color: var(--secondary-dark);
-    border-color: rgba(1,136,251,0.4);
+    border-color: rgba(200,149,53,0.45);
   }
   .card.delivered { opacity: 0.62; }
   .card.delivered .card-name { text-decoration: line-through; text-decoration-color: rgba(70,88,100,0.4); }
@@ -697,7 +702,7 @@
   .mini-deliver.done {
     background: var(--secondary-light);
     color: var(--secondary-dark);
-    border-color: rgba(1,136,251,0.4);
+    border-color: rgba(200,149,53,0.45);
   }
   .custom-item.delivered { opacity: 0.6; }
   .custom-item.delivered .custom-item-name { text-decoration: line-through; text-decoration-color: rgba(70,88,100,0.4); }
@@ -717,7 +722,7 @@
   }
   .mg-btn:active { transform: scale(0.97); }
   .mg-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-  .mg-btn.danger { background: var(--card-bg); color: var(--primary); border-color: rgba(254,57,67,0.5); flex: 0 0 auto; }
+  .mg-btn.danger { background: var(--card-bg); color: var(--primary); border-color: rgba(12,34,58,0.5); flex: 0 0 auto; }
   .mg-count { font-size: 12px; color: var(--muted); margin: 2px 2px 10px; }
   .mg-count-warn { color: var(--line2); font-weight: 600; }
   .mg-item {
@@ -755,7 +760,7 @@
     margin-bottom: 14px;
   }
   .backup-warn { background: rgba(253,158,66,0.15); color: #b5641a; border: 1px solid rgba(253,158,66,0.4); }
-  .backup-ok { background: var(--secondary-light); color: var(--secondary-dark); border: 1px solid rgba(1,136,251,0.3); }
+  .backup-ok { background: var(--secondary-light); color: var(--secondary-dark); border: 1px solid rgba(200,149,53,0.35); }
 
   /* ===== MODAL ===== */
   .modal-overlay {
@@ -817,7 +822,7 @@
   .snap-item:last-child { border-bottom: none; }
   .snap-date { font-size: 13.5px; font-weight: 600; color: var(--text); }
   .snap-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-  .snap-restore { background: var(--secondary-light); color: var(--secondary-dark); border: 1px solid rgba(1,136,251,0.3); border-radius: var(--r-sm); padding: 7px 12px; font-size: 12px; font-weight: 600; cursor: pointer; flex: 0 0 auto; }
+  .snap-restore { background: var(--secondary-light); color: var(--secondary-dark); border: 1px solid rgba(200,149,53,0.35); border-radius: var(--r-sm); padding: 7px 12px; font-size: 12px; font-weight: 600; cursor: pointer; flex: 0 0 auto; }
   /* ===== LOGIN ===== */
   .login-overlay {
     position: fixed; inset: 0;
@@ -861,7 +866,7 @@
 
   /* ===== CONN STATUS ===== */
   .conn-ok, .conn-off { display: flex; align-items: center; border-radius: var(--r-sm); padding: 9px 12px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
-  .conn-ok { background: var(--secondary-light); color: var(--secondary-dark); border: 1px solid rgba(1,136,251,0.3); }
+  .conn-ok { background: var(--secondary-light); color: var(--secondary-dark); border: 1px solid rgba(200,149,53,0.35); }
   .conn-off { background: rgba(253,158,66,0.15); color: #b5641a; border: 1px solid rgba(253,158,66,0.4); }
   .portal-back {
     display: inline-flex; align-items: center;
@@ -1295,9 +1300,9 @@ function renderHome() {
   const totalAmt = Object.values(dailyAmounts).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
 
   const stats = [
-    { icon: iconOnly('store', 22), value: STORES.length, label: 'Customer List', grad: ['#0188fb', '#0188fb'] },
-    { icon: iconOnly('route', 22), value: customRoute.length, label: 'ร้านในเส้นทางที่วางไว้', grad: ['#fe3943', '#fe3943'] },
-    { icon: iconOnly('coin', 22), value: '฿' + fmtBaht(totalAmt), label: 'ยอดเก็บวันนี้', grad: ['#fd9e42', '#fd9e42'] },
+    { icon: iconOnly('store', 22), value: STORES.length, label: 'Customer List', grad: ['#0C223A', '#173D61'] },
+    { icon: iconOnly('route', 22), value: customRoute.length, label: 'ร้านในเส้นทางที่วางไว้', grad: ['#C89535', '#9D681E'] },
+    { icon: iconOnly('coin', 22), value: '฿' + fmtBaht(totalAmt), label: 'ยอดเก็บวันนี้', grad: ['#E4B65C', '#9D681E'] },
   ];
   document.getElementById('homeStats').innerHTML = stats.map(st => `
     <div class="home-stat-card" style="background:linear-gradient(135deg, ${st.grad[0]}, ${st.grad[1]})">
@@ -1308,11 +1313,11 @@ function renderHome() {
   `).join('');
 
   const menu = [
-    { icon: iconOnly('list', 24), title: 'Customer List', sub: 'ค้นหา · เบอร์โทร · แผนที่', view: 'list', grad: ['#8d9cac', '#8d9cac'] },
-    { icon: iconOnly('map', 24), title: 'แผนที่ภาพรวม', sub: 'ดูหมุดร้านค้าทั้งหมด', view: 'map', grad: ['#0188fb', '#0188fb'] },
-    { icon: iconOnly('edit', 24), title: 'กำหนดเส้นทางเอง', sub: 'เลือกร้าน + จัดลำดับเอง', view: 'custom', grad: ['#e9c38c', '#e9c38c'] },
-    { icon: iconOnly('store', 24), title: 'จัดการร้านสาขา', sub: 'เพิ่ม/แก้ไข · สำรองข้อมูล', view: 'manage', grad: ['#fd9e42', '#fd9e42'] },
-    { icon: iconOnly('card', 24), title: 'ช่องทางชำระเงิน', sub: 'QR / เลขบัญชี K Bank', view: 'payment', grad: ['#465864', '#465864'], wide: true },
+    { icon: iconOnly('list', 24), title: 'Customer List', sub: 'ค้นหา · เบอร์โทร · แผนที่', view: 'list', grad: ['#89694C', '#6B4A33'] },
+    { icon: iconOnly('map', 24), title: 'แผนที่ภาพรวม', sub: 'ดูหมุดร้านค้าทั้งหมด', view: 'map', grad: ['#0C223A', '#173D61'] },
+    { icon: iconOnly('edit', 24), title: 'กำหนดเส้นทางเอง', sub: 'เลือกร้าน + จัดลำดับเอง', view: 'custom', grad: ['#D8B479', '#C89535'] },
+    { icon: iconOnly('store', 24), title: 'จัดการร้านสาขา', sub: 'เพิ่ม/แก้ไข · สำรองข้อมูล', view: 'manage', grad: ['#E4B65C', '#9D681E'] },
+    { icon: iconOnly('card', 24), title: 'ช่องทางชำระเงิน', sub: 'QR / เลขบัญชี K Bank', view: 'payment', grad: ['#001A37', '#173D61'], wide: true },
   ];
   document.getElementById('homeMenu').innerHTML = menu.map(m => `
     <button class="home-menu-card${m.wide ? ' wide' : ''}" style="background:linear-gradient(135deg, ${m.grad[0]}, ${m.grad[1]})" onclick="switchTab('${m.view}')">
