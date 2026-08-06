@@ -295,7 +295,7 @@ function thDT(s){try{return new Date(s).toLocaleString("th-TH",{day:"numeric",mo
 function setStatus(id,st){
   const body={id:id,status:st};
   if(st==="done"){
-    const pp=prompt("✅ ปิดงาน — ใส่ \"ชื่อโปรโมชั่นที่ตั้งใน POS\" (บังคับ เพื่อให้ผู้บริหารตามยอดได้):","");
+    const pp=prompt("✅ ปิดงาน — ใส่ชื่อโปรโมชั่นที่ตั้งใน POS (บังคับ เพื่อให้ผู้บริหารตามยอดได้):","");
     if(pp===null) return;
     if(!pp.trim()){alert("ต้องใส่ชื่อโปรโมชั่นก่อนปิดงานค่ะ");return;}
     body.pos_promo=pp.trim();
@@ -308,11 +308,11 @@ function copyPre(btn){
 }
 function buildCaption(j){
   const lines=(j.items||[]).map(x=>"🐾 "+x.name+" เหลือ "+x.promo+".- (ปกติ "+x.price+".-) ลดถึง "+x.disc+"%");
-  return "🔥 โปรโมชันพิเศษ ลดจริง คุ้มจริง! 🔥\n\n"+lines.join("\n")+"\n\n📍 ของมีจำนวนจำกัด หมดแล้วหมดเลย\n📲 สอบถาม/สั่งจอง: ทักแชทเพจ หรือ LINE ของร้าน\n\n#เลยสมาร์ทเพ็ทช็อป #โปรโมชันสัตว์เลี้ยง #LOVEPET #อาหารสัตว์ราคาถูก";
+  return "🔥 โปรโมชันพิเศษ ลดจริง คุ้มจริง! 🔥\\n\\n"+lines.join("\\n")+"\\n\\n📍 ของมีจำนวนจำกัด หมดแล้วหมดเลย\\n📲 สอบถาม/สั่งจอง: ทักแชทเพจ หรือ LINE ของร้าน\\n\\n#เลยสมาร์ทเพ็ทช็อป #โปรโมชันสัตว์เลี้ยง #LOVEPET #อาหารสัตว์ราคาถูก";
 }
 function buildPrompt(j){
   const its=(j.items||[]).map(x=>x.name+" ราคาพิเศษ "+x.promo+" บาท (ลด "+x.disc+"%)").join(" · ");
-  return "สร้างภาพโปสเตอร์โปรโมชันร้านสัตว์เลี้ยง สไตล์พรีเมียม โทนสีกรมท่า-ทอง (navy #0C223A + gold #C89535) พื้นหลังสะอาด หัวเรื่องใหญ่ \"โปรโมชันพิเศษ\" แสดงสินค้า "+(j.items||[]).length+" รายการ: "+its+" · มีป้ายเปอร์เซ็นต์ส่วนลดสีทองโดดเด่น ตัวหนังสือภาษาไทยอ่านง่าย จัดวางแบบโปสเตอร์ขายของมืออาชีพ ขนาดภาพ 1080x1080 สำหรับโพสต์ Facebook";
+  return "สร้างภาพโปสเตอร์โปรโมชันร้านสัตว์เลี้ยง สไตล์พรีเมียม โทนสีกรมท่า-ทอง (navy #0C223A + gold #C89535) พื้นหลังสะอาด หัวเรื่องใหญ่ 'โปรโมชันพิเศษ' แสดงสินค้า "+(j.items||[]).length+" รายการ: "+its+" · มีป้ายเปอร์เซ็นต์ส่วนลดสีทองโดดเด่น ตัวหนังสือภาษาไทยอ่านง่าย จัดวางแบบโปสเตอร์ขายของมืออาชีพ ขนาดภาพ 1080x1080 สำหรับโพสต์ Facebook";
 }
 function toolkit(j){
   const box='background:#FAF6F1;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:6px 0 12px;white-space:pre-wrap;font-size:13px;line-height:1.6;font-family:inherit';
