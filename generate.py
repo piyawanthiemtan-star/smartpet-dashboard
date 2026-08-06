@@ -58,18 +58,35 @@ def detect_branch(db_path):
     except Exception:
         return None
 
+def _data_ts(path):
+    """เวลาบิลล่าสุด "ในไฟล์" — ใช้ตัดสินว่าไฟล์ไหนใหม่จริง
+    (mtime เชื่อไม่ได้: ตอน Actions ดาวน์โหลด ทุกไฟล์ได้ mtime ใหม่พร้อมกันหมด
+    เคยทำให้ไฟล์เก่าตกค้างแซงไฟล์จริง แดชบอร์ดถอยไป 6 วัน — 6 ส.ค. 2569)"""
+    try:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        ts = con.execute("SELECT MAX([Create]) FROM Orders WHERE IsDelete=0").fetchone()[0]
+        con.close()
+        return str(ts or "")
+    except Exception:
+        return ""
+
 def backups_by_branch():
-    """ไฟล์ backup ใหม่สุดของแต่ละสาขา -> {"ML3": path, "ML2": path}"""
+    """ไฟล์ backup ที่ข้อมูลใหม่สุดของแต่ละสาขา -> {"ML3": path, "ML2": path}"""
     dbs = glob.glob(os.path.join(BACKUP_DIR, "*.db"))
     if not dbs: sys.exit(f"ไม่พบไฟล์ backup (.db) ใน {BACKUP_DIR}")
-    found, skipped = {}, []
-    for d in sorted(dbs, key=os.path.getmtime):     # เก่า -> ใหม่ ตัวหลังทับตัวหน้า
+    found, skipped = {}, []          # found[b] = (เวลาบิลล่าสุด, path)
+    for d in dbs:
         b = detect_branch(d)
-        if b: found[b] = d
-        else: skipped.append(os.path.basename(d))
+        if not b:
+            skipped.append(os.path.basename(d)); continue
+        ts = _data_ts(d)
+        if b not in found or ts > found[b][0]:
+            found[b] = (ts, d)
     if skipped: log("ข้ามไฟล์ที่ระบุสาขาไม่ได้:", ", ".join(skipped))
     if not found: sys.exit("ไม่พบ backup ที่ระบุสาขาได้เลย")
-    return found
+    for b, (ts, d) in sorted(found.items()):
+        log(f"[{b}] เลือก {os.path.basename(d)} (บิลล่าสุดในไฟล์ {ts})")
+    return {b: d for b, (ts, d) in found.items()}
 
 def is_ml3(db_path):
     """Identify the ML3 warehouse DB by its data (it ships transfers out from 7FEF),
