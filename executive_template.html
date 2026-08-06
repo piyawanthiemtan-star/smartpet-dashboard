@@ -198,6 +198,10 @@
     </div>
     <div class="panel">
       <h3>เร่งระบายสต๊อก C + ของตาย <span id="clr-sub">–</span></h3>
+      <div style="margin:0 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input id="clr-search" type="search" placeholder="🔎 พิมพ์ค้นหา: ชื่อสินค้า / หมวด / รหัสประเภท / บาร์โค้ด" style="flex:1;min-width:260px;padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:13.5px">
+        <span id="clr-found" style="font-size:12.5px;color:var(--ink-3)"></span>
+      </div>
       <div id="clr-actions" style="display:none;position:sticky;top:0;z-index:5;background:var(--surface-2);border:1px solid var(--gold,#C89535);border-radius:10px;padding:8px 14px;margin:0 0 10px;align-items:center;gap:12px">
         ✅ เลือกแล้ว <b id="clr-n" class="tnum">0</b> รายการ
         <button id="clr-make" style="background:var(--gold,#C89535);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">📋 ออกใบรายการโปร</button>
@@ -299,7 +303,18 @@ function clrUpdateBar(){
 }
 document.addEventListener("change",e=>{
   if(e.target.classList&&e.target.classList.contains("clr-ck")) clrUpdateBar();
-  if(e.target.id==="clr-all"){document.querySelectorAll(".clr-ck").forEach(b=>b.checked=e.target.checked);clrUpdateBar();}
+  if(e.target.id==="clr-all"){document.querySelectorAll(".clr-ck").forEach(b=>{const tr=b.closest("tr");if(tr&&tr.style.display!=="none")b.checked=e.target.checked;});clrUpdateBar();}
+});
+/* ค้นหาในตารางเร่งระบาย — กรองแถวสดๆ ตามที่พิมพ์ (ชื่อ/หมวด/รหัสประเภท/บาร์โค้ด รวมอยู่ในข้อความแถวแล้ว)
+   ติ๊กที่เลือกไว้ไม่หายตอนกรอง — เลือกจากหลายคำค้นสะสมแล้วออกใบเดียวได้ */
+document.addEventListener("input",e=>{
+  if(e.target.id!=="clr-search") return;
+  const q=e.target.value.trim().toLowerCase(); let n=0;
+  document.querySelectorAll("#clr-rows tr").forEach(tr=>{
+    const hit=!q||tr.textContent.toLowerCase().includes(q);
+    tr.style.display=hit?"":"none"; if(hit)n++;
+  });
+  $("clr-found").textContent=q?`พบ ${n} รายการ`:"";
 });
 document.addEventListener("click",e=>{
   if(e.target.id==="clr-clear"){document.querySelectorAll(".clr-ck").forEach(b=>b.checked=false);clrUpdateBar();}
