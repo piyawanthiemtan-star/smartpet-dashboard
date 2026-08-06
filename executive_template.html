@@ -198,8 +198,14 @@
     </div>
     <div class="panel">
       <h3>เร่งระบายสต๊อก C + ของตาย <span id="clr-sub">–</span></h3>
+      <div id="clr-actions" style="display:none;position:sticky;top:0;z-index:5;background:var(--surface-2);border:1px solid var(--gold,#C89535);border-radius:10px;padding:8px 14px;margin:0 0 10px;align-items:center;gap:12px">
+        ✅ เลือกแล้ว <b id="clr-n" class="tnum">0</b> รายการ
+        <button id="clr-make" style="background:var(--gold,#C89535);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">📋 ออกใบรายการโปร</button>
+        <button id="clr-clear" style="background:transparent;color:var(--ink-3);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:12.5px;cursor:pointer">ล้างที่เลือก</button>
+      </div>
       <div class="scroll">
-        <table style="min-width:900px"><thead><tr>
+        <table style="min-width:940px"><thead><tr>
+          <th style="width:34px"><input type="checkbox" id="clr-all" title="เลือกทั้งหมด" style="width:16px;height:16px;cursor:pointer"></th>
           <th style="text-align:left">สินค้า</th><th>เหตุ</th><th>ทุนจม</th><th>สต๊อก / ขาย·ปี</th>
           <th>ต้นทุน→ราคา</th><th>ราคาโปรแนะนำ</th><th>มาร์จิ้นเหลือ</th><th style="text-align:left">กลยุทธ์</th>
         </tr></thead><tbody id="clr-rows"></tbody></table>
@@ -278,9 +284,47 @@ function renderClearance(){
   const c=D.clearance||[];
   $("clr-sub").textContent=`${(D.s.clrCount||0).toLocaleString()} รายการ · ทุนจม ${kbaht(D.s.clrCash||0)} · ระบายได้เงินคืน ~${kbaht(D.s.clrRecover||0)}`;
   const T={strong:["จัดโปรแรงได้","#1c7a4a","#e3f4ea"],mid:["จัดโปรกลาง","#8a5a12","#faeecd"],hold:["ลดไม่ได้ · บันเดิล/คืน","#a32d2d","#f7dede"]};
-  $("clr-rows").innerHTML=c.map(x=>{const t=T[x.tier]||T.mid,r=x.reason==="dead"?"ของตาย":"ล้น C";
-    return `<tr><td style="text-align:left">${esc(x.name)}<div style="font-size:11px;color:var(--ink-3)">${esc(x.cat)}</div></td><td style="text-align:center;font-size:11.5px;color:var(--ink-2)">${r}</td><td class="tnum" style="text-align:right;font-weight:700">${baht0(x.cashLocked)}</td><td class="tnum" style="text-align:right">${x.stock} / ${x.sold365}</td><td class="tnum" style="text-align:right">${x.cost}→${x.price}<div style="font-size:11px;color:var(--ink-3)">มาร์จิ้น ${x.marginNow}%</div></td><td class="tnum" style="text-align:right;font-weight:700;color:var(--accent)">฿${x.promo}<div style="font-size:11px;color:var(--ink-3)">ลด ${x.disc}%</div></td><td class="tnum" style="text-align:right">${x.marginKept}%</td><td style="text-align:left"><span style="background:${t[2]};color:${t[1]};font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:12px;white-space:nowrap">${t[0]}</span></td></tr>`;
-  }).join("")||'<tr><td colspan="8" style="text-align:center;color:var(--ink-3);padding:16px">— ไม่มีรายการต้องระบาย —</td></tr>';
+  $("clr-rows").innerHTML=c.map((x,i)=>{const t=T[x.tier]||T.mid,r=x.reason==="dead"?"ของตาย":"ล้น C";
+    return `<tr><td style="text-align:center"><input type="checkbox" class="clr-ck" data-i="${i}" style="width:16px;height:16px;cursor:pointer"></td><td style="text-align:left">${esc(x.name)}<div style="font-size:11px;color:var(--ink-3)">${esc(x.cat)} · ${esc(x.bc||"")}</div></td><td style="text-align:center;font-size:11.5px;color:var(--ink-2)">${r}</td><td class="tnum" style="text-align:right;font-weight:700">${baht0(x.cashLocked)}</td><td class="tnum" style="text-align:right">${x.stock} / ${x.sold365}</td><td class="tnum" style="text-align:right">${x.cost}→${x.price}<div style="font-size:11px;color:var(--ink-3)">มาร์จิ้น ${x.marginNow}%</div></td><td class="tnum" style="text-align:right;font-weight:700;color:var(--accent)">฿${x.promo}<div style="font-size:11px;color:var(--ink-3)">ลด ${x.disc}%</div></td><td class="tnum" style="text-align:right">${x.marginKept}%</td><td style="text-align:left"><span style="background:${t[2]};color:${t[1]};font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:12px;white-space:nowrap">${t[0]}</span></td></tr>`;
+  }).join("")||'<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:16px">— ไม่มีรายการต้องระบาย —</td></tr>';
 }
+/* ===== เลือกสินค้าจากตารางเร่งระบาย -> ออกใบรายการโปร (บาร์โค้ด/ชื่อ/ราคาโปร) ให้ทีม ===== */
+/* ใบที่ออกไม่มีทุน/มาร์จิ้น — ส่งต่อทีมหน้าร้านได้เลยตามนโยบายแยกข้อมูล */
+function clrSelected(){return [...document.querySelectorAll(".clr-ck:checked")].map(b=>(D.clearance||[])[+b.dataset.i]).filter(Boolean);}
+function clrUpdateBar(){
+  const n=document.querySelectorAll(".clr-ck:checked").length;
+  $("clr-n").textContent=n;
+  $("clr-actions").style.display=n?"flex":"none";
+  const all=$("clr-all"); if(all){const t=document.querySelectorAll(".clr-ck").length;all.checked=t>0&&n===t;all.indeterminate=n>0&&n<t;}
+}
+document.addEventListener("change",e=>{
+  if(e.target.classList&&e.target.classList.contains("clr-ck")) clrUpdateBar();
+  if(e.target.id==="clr-all"){document.querySelectorAll(".clr-ck").forEach(b=>b.checked=e.target.checked);clrUpdateBar();}
+});
+document.addEventListener("click",e=>{
+  if(e.target.id==="clr-clear"){document.querySelectorAll(".clr-ck").forEach(b=>b.checked=false);clrUpdateBar();}
+  if(e.target.id==="clr-make"){
+    const sel=clrSelected(); if(!sel.length) return;
+    const today=new Date().toLocaleDateString("th-TH",{day:"numeric",month:"long",year:"numeric"});
+    const br=(D.s.branch||"")+(D.s.branchName?" · "+D.s.branchName:"");
+    const rows=sel.map((x,i)=>`<tr><td class="c">${i+1}</td><td class="c mono">${esc(x.bc||"")}</td><td>${esc(x.name)}</td><td class="r">${x.price}</td><td class="r big">${x.promo}</td><td class="c">${x.disc}%</td><td class="c">${x.stock}</td><td></td></tr>`).join("");
+    const w=window.open("","_blank");
+    w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบรายการจัดโปรกลุ่ม C</title><style>
+body{font-family:Tahoma,'Noto Sans Thai',sans-serif;font-size:13px;margin:24px;color:#222}
+h2{margin:0 0 2px;font-size:18px} .sub{color:#666;font-size:12px;margin-bottom:14px}
+table{border-collapse:collapse;width:100%} th,td{border:1px solid #999;padding:6px 8px}
+th{background:#0C223A;color:#fff;font-size:12px} td.c{text-align:center} td.r{text-align:right}
+td.big{font-weight:700;font-size:15px} .mono{font-family:Consolas,monospace}
+.btn{margin:14px 0;padding:9px 22px;font-size:14px;font-weight:700;background:#C89535;color:#fff;border:none;border-radius:8px;cursor:pointer}
+@media print{.btn{display:none}}
+</style></head><body>
+<h2>ใบรายการจัดโปรกลุ่ม C</h2>
+<div class="sub">สาขา ${esc(br)} · วันที่ ${today} · ${sel.length} รายการ · แก้ราคาใน POS ตามช่อง "ราคาโปร" แล้วติ๊กช่องขวาสุด</div>
+<button class="btn" onclick="print()">🖨️ พิมพ์</button>
+<table><thead><tr><th>#</th><th>บาร์โค้ด</th><th>ชื่อสินค้า</th><th>ราคาเดิม</th><th>ราคาโปร</th><th>ลด</th><th>สต๊อก</th><th>✓ เสร็จ</th></tr></thead><tbody>${rows}</tbody></table>
+</body></html>`);
+    w.document.close();
+  }
+});
 renderExec();
 </script>
