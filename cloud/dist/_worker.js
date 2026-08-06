@@ -281,6 +281,7 @@ function marketingPage(sess, env) {
   const nav = `<div class="nav"><img class="logo" src="/logo.png" alt="LOVEPET GLOBALPLUS">
 <div class="co">บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด<small>LOVE PET GLOBAL PLUS CO., LTD.</small></div>
 <div class="who"><span class="chip"><b>${esc(sess.user)}</b> · ${esc(brLabel)}</span>
+<a class="out" href="/home">🏠 หน้าหลัก</a>
 <a class="out" href="/logout">ออกจากระบบ</a></div></div>`;
   const main = `<h1 class="hi">📣 งานการตลาด</h1>
 <p class="lead">ใบสั่งงานโปรโมชันจากผู้บริหาร — ${canEdit ? "กดรับงาน/ปิดงานได้เลย" : "ดูอย่างเดียว"}</p>
@@ -332,6 +333,7 @@ function accountingPage(sess, env) {
   const nav = `<div class="nav"><img class="logo" src="/logo.png" alt="LOVEPET GLOBALPLUS">
 <div class="co">บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด<small>LOVE PET GLOBAL PLUS CO., LTD.</small></div>
 <div class="who"><span class="chip"><b>${esc(sess.user)}</b> · ${esc(brLabel)}</span>
+<a class="out" href="/home">🏠 หน้าหลัก</a>
 <a class="out" href="/logout">ออกจากระบบ</a></div></div>`;
   const main = `<h1 class="hi">💰 บัญชีและบุคคล</h1>
 <p class="lead">เครื่องมือของทีมบัญชี — ตัวเลขฝั่งเงินเข้า-ออกเท่านั้น</p>
