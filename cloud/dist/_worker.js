@@ -251,6 +251,11 @@ function homePage(sess, env) {
       + `<div class="ic">👔</div><div class="t">คอนโซลผู้บริหาร</div>`
       + `<div class="d">ยอดขาย · กำไรมาร์จิ้น · เร่งระบายสต๊อก · ปิดบิลสิ้นวัน</div>`
       + `<div class="go">เปิดแดชบอร์ด →</div></a>`);
+    // หลังบ้าน LOEI CAT HOTEL — ทีมพัฒนาภายนอกกำลังทำระบบจอง+แดชบอร์ด เสียบลิงก์เมื่อส่งมอบ
+    cards.push(`<a class="tile soon" href="#"><span class="badge dev">กำลังพัฒนา</span>`
+      + `<div class="ic">🏨</div><div class="t">หลังบ้านโรงแรมแมว</div>`
+      + `<div class="d">LOEI CAT HOTEL · ระบบจอง + แดชบอร์ด (ทีมพัฒนากำลังส่งมอบ)</div>`
+      + `<div class="go">เร็วๆ นี้</div></a>`);
   }
 
   const brs = sessBranches(sess);
@@ -266,6 +271,26 @@ function homePage(sess, env) {
   return new Response(HOME_SHELL("หน้าหลัก — LOVEPET", nav, main), { status: 200, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" } });
 }
 
+// ===== หน้าแผนกบัญชีและบุคคล — hub รวมเครื่องมือทีมบัญชี (ธีมเดียวกับ /home) =====
+function accountingPage(sess, env) {
+  const attUrl = env.ATTENDANCE_URL || "https://piyawanthiemtan-star.github.io/attendance-app/attendance-app.html";
+  const tiles = [
+    `<a class="tile" href="/accounting-daily"><span class="badge on">ใช้งานได้</span><div class="ic">🧾</div><div class="t">ใบปิดยอดรายกะ</div><div class="d">เงินตั้งต้น · เงินสด/โอน/เครดิต แยกช่องทาง · ส่วนต่างลิ้นชักทุกกะ ทั้ง 2 สาขา</div><div class="go">เปิดดู →</div></a>`,
+    `<a class="tile" href="${esc(attUrl)}" target="_blank" rel="noopener"><span class="badge on">ใช้งานได้</span><div class="ic">⏰</div><div class="t">ลงเวลาเข้า-ออกงาน</div><div class="d">บันทึกเวลาทำงานพนักงาน · เปิดแอปลงเวลา</div><div class="go">เปิดแอป →</div></a>`,
+    `<a class="tile soon" href="#"><span class="badge dev">กำลังพัฒนา</span><div class="ic">📱</div><div class="t">ค่าคอมร้านมือถือ</div><div class="d">คำนวณค่าคอมมิชชั่นรายเดือน สาขามือถือ (ML1)</div><div class="go">เร็วๆ นี้</div></a>`,
+  ];
+  const brs = sessBranches(sess);
+  const brLabel = brs.includes("*") ? "ทุกสาขา" : brs.map(branchName).join(" · ");
+  const nav = `<div class="nav"><img class="logo" src="/logo.png" alt="LOVEPET GLOBALPLUS">
+<div class="co">บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด<small>LOVE PET GLOBAL PLUS CO., LTD.</small></div>
+<div class="who"><span class="chip"><b>${esc(sess.user)}</b> · ${esc(brLabel)}</span>
+<a class="out" href="/logout">ออกจากระบบ</a></div></div>`;
+  const main = `<h1 class="hi">💰 บัญชีและบุคคล</h1>
+<p class="lead">เครื่องมือของทีมบัญชี — ตัวเลขฝั่งเงินเข้า-ออกเท่านั้น</p>
+<div class="grid">${tiles.join("")}</div>
+<p class="foot"><a href="/home" style="color:var(--gold-d);font-weight:600;text-decoration:none">← กลับหน้าหลัก</a></p>`;
+  return new Response(HOME_SHELL("บัญชีและบุคคล — LOVEPET", nav, main), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
 function placeholder(section, sess) {
   const body = `<img class="logo" src="/logo.png" alt="LOVEPET GLOBALPLUS"><h1>${LABEL[section]}</h1>
 <p class="msg">🔧 กำลังพัฒนา (เฟส B)<br>ระบบล็อกอิน+สิทธิ์พร้อมแล้ว หน้านี้จะเติมข้อมูลจริงจาก POS เร็วๆ นี้</p>
@@ -808,6 +833,15 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return env.ASSETS.fetch(new Request(new URL("/daily", url), request));   // clean URL → daily.html
     }
 
+    // ใบปิดยอดรายกะ ฉบับบัญชี — ไม่มีตัวเลขกำไรในไฟล์เลย (คนละไฟล์กับ /daily ของผู้บริหาร)
+    if (execP === "accounting-daily") {
+      const sess = await readSession(request, env);
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/accounting-daily") } });
+      if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);
+      if (!canSee(sess, "accounting")) return forbidden("accounting", sess);
+      return env.ASSETS.fetch(new Request(new URL("/accounting-daily", url), request));   // clean URL → accounting-daily.html
+    }
+
     // ใบเบิกสินค้า ML2 รายวัน — สิทธิ์เดียวกับการ์ดคลังและจัดส่ง (ไฟล์มาจาก ml2_report.py เครื่อง Owner)
     if (execP === "requisition") {
       const sess = await readSession(request, env);
@@ -832,7 +866,8 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
         return env.ASSETS.fetch(request);
       }
       if (section === "warehouse") return env.ASSETS.fetch(request); // → warehouse.html (LSMG Logistic)
-      return placeholder(section, sess); // marketing/sales/accounting รอเฟส B
+      if (section === "accounting") return accountingPage(sess, env);
+      return placeholder(section, sess); // marketing/sales รอเฟส B
     }
 
     // อื่นๆ → หน้าหลัก

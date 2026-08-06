@@ -11,7 +11,7 @@ SmartPet · สรุปรายวันสำหรับผู้บริ�
   1) ยอดบิล = ราคา*จำนวน - ส่วนลดรายชิ้น  แล้ว **หักส่วนลดท้ายบิล/โปร/คูปอง/แต้ม** อีกชั้น
   2) บิล PaymentType=4 คือ "จ่ายผสมหลายช่องทาง" ต้องแตกยอดตาม OrderPayment ไม่ใช่นับทั้งใบ
 """
-import sys, os, json, sqlite3, datetime
+import sys, os, json, copy, sqlite3, datetime
 sys.stdout.reconfigure(encoding="utf-8")
 
 from generate import BACKUP_DIR, OUT_DIR, BRANCH_NAMES, BKK, th_stamp, backups_by_branch, log
@@ -134,11 +134,33 @@ def main():
     if not out["branches"]:
         sys.exit("ไม่มีข้อมูลสาขาไหนเลย")
     os.makedirs(OUT_DIR, exist_ok=True)
-    html = open(TEMPLATE, encoding="utf-8").read().replace("__DATA__", json.dumps(out, ensure_ascii=False))
+    tpl = open(TEMPLATE, encoding="utf-8").read()
+    html = tpl.replace("__DATA__", json.dumps(out, ensure_ascii=False))
     path = os.path.join(OUT_DIR, "daily.html")
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
     log("เขียนสรุปรายวัน ->", path, f"({len(html)/1024:.0f} KB)")
+
+    # --- ฉบับบัญชี: ตัดตัวเลขกำไร (gp) ออกจาก "ข้อมูล" เลย ไม่ใช่แค่ซ่อน ---
+    #     ทีมบัญชีต้องเห็นเงินเข้า-ออก/ลิ้นชัก แต่ไม่เห็นกำไร (นโยบายเดียวกับที่แยก /executive)
+    acct = copy.deepcopy(out)
+    for br in acct["branches"].values():
+        for d in br["days"].values():
+            d.pop("gp", None)
+    atpl = tpl.replace('+ (t.rev>0?" · กำไรขั้นต้น "+gp+"%":"")', "")
+    atpl = atpl.replace("'<div class=\"meta\">'+sT.bills+\" บิล · กำไรขั้นต้น ฿\"+baht(sT.gp)+\"</div>\"",
+                        "'<div class=\"meta\">'+sT.bills+\" บิล</div>\"")
+    # หัวเพจ: ฉบับบัญชีไม่ใช่คอนโซลผู้บริหาร + ไม่มีแท็บลิงก์ไป /executive (บัญชีเปิดไม่ได้อยู่แล้ว)
+    atpl = atpl.replace("<h1>คอนโซลผู้บริหาร</h1>", "<h1>ใบปิดยอดรายกะ — บัญชี</h1>")
+    atpl = atpl.replace('<div class="cnav"><a href="/executive">👔 ภาพรวมผู้บริหาร</a><span class="on">🧾 ปิดบิลสิ้นวัน</span></div>', "")
+    assert atpl != tpl and "กำไรขั้นต้น" not in atpl and "/executive" not in atpl, \
+        "template เปลี่ยนไป — patch ฉบับบัญชีไม่ติด ต้องแก้ daily_summary.py"
+    ahtml = atpl.replace("__DATA__", json.dumps(acct, ensure_ascii=False))
+    assert '"gp"' not in ahtml, "ยังมีข้อมูลกำไรหลุดในฉบับบัญชี"
+    apath = os.path.join(OUT_DIR, "daily_accounting.html")
+    with open(apath, "w", encoding="utf-8") as f:
+        f.write(ahtml)
+    log("เขียนฉบับบัญชี (ไม่มีกำไร) ->", apath, f"({len(ahtml)/1024:.0f} KB)")
 
 
 if __name__ == "__main__":

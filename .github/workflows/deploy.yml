@@ -75,6 +75,11 @@ jobs:
             cp output/daily.html cloud/dist/daily.html
             echo "รวมสรุปปิดบิลสิ้นวันเข้าเว็บแล้ว"
           fi
+          # ใบปิดยอดฉบับบัญชี — ไม่มีตัวเลขกำไรในไฟล์ (สิทธิ์ section accounting)
+          if [ -f output/daily_accounting.html ]; then
+            cp output/daily_accounting.html cloud/dist/accounting-daily.html
+            echo "รวมใบปิดยอดฉบับบัญชีเข้าเว็บแล้ว"
+          fi
 
       - name: Deploy to Cloudflare Pages
         env:
