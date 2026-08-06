@@ -307,7 +307,7 @@ document.addEventListener("click",e=>{
     const sel=clrSelected(); if(!sel.length) return;
     const today=new Date().toLocaleDateString("th-TH",{day:"numeric",month:"long",year:"numeric"});
     const br=(D.s.branch||"")+(D.s.branchName?" · "+D.s.branchName:"");
-    const rows=sel.map((x,i)=>`<tr><td class="c">${i+1}</td><td class="c mono">${esc(x.bc||"")}</td><td>${esc(x.name)}</td><td class="r">${x.price}</td><td class="r big">${x.promo}</td><td class="c">${x.disc}%</td><td class="c">${x.stock}</td><td></td></tr>`).join("");
+    const rows=sel.map((x,i)=>`<tr><td class="c">${i+1}</td><td class="c mono">${esc(x.bc||"")}</td><td class="c">${esc((x.cat||"").split(" ")[0])}</td><td>${esc(x.name)}</td><td class="r">${x.price}</td><td class="r big">${x.promo}</td><td class="c">${x.disc}%</td><td class="c">${x.stock}</td><td></td></tr>`).join("");
     const w=window.open("","_blank");
     w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบรายการจัดโปรกลุ่ม C</title><style>
 body{font-family:Tahoma,'Noto Sans Thai',sans-serif;font-size:13px;margin:24px;color:#222}
@@ -321,7 +321,7 @@ td.big{font-weight:700;font-size:15px} .mono{font-family:Consolas,monospace}
 <h2>ใบรายการจัดโปรกลุ่ม C</h2>
 <div class="sub">สาขา ${esc(br)} · วันที่ ${today} · ${sel.length} รายการ · แก้ราคาใน POS ตามช่อง "ราคาโปร" แล้วติ๊กช่องขวาสุด</div>
 <button class="btn" onclick="print()">🖨️ พิมพ์</button>
-<table><thead><tr><th>#</th><th>บาร์โค้ด</th><th>ชื่อสินค้า</th><th>ราคาเดิม</th><th>ราคาโปร</th><th>ลด</th><th>สต๊อก</th><th>✓ เสร็จ</th></tr></thead><tbody>${rows}</tbody></table>
+<table><thead><tr><th>#</th><th>บาร์โค้ด</th><th>รหัสประเภท</th><th>ชื่อสินค้า</th><th>ราคาเดิม</th><th>ราคาโปร</th><th>ลด</th><th>สต๊อก</th><th>✓ เสร็จ</th></tr></thead><tbody>${rows}</tbody></table>
 </body></html>`);
     w.document.close();
   }
