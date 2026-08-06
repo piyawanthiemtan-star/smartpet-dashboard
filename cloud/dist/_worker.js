@@ -305,31 +305,47 @@ function setStatus(id,st){
 }
 const JOBS={};
 function buildScenePrompt(j){
-  // ภาษาอังกฤษ = โมเดลภาพเข้าใจดีสุด · สั่งฉากเปล่าไม่มีตัวหนังสือ (ไทยจาก AI เพี้ยนเสมอ ทีมพิมพ์ทับใน Canva)
-  const n=(j.items||[]).length||3;
-  return "Professional promotional poster background for a pet shop, bright cheerful cartoon-commercial style, "
-    +"blurred pet store shelves bokeh background with warm lighting, cute fluffy orange Persian cat smiling and peeking from the bottom left corner, "
-    +"round wooden podium displaying "+n+" generic pet product bags standing upright, "
-    +"large empty rounded red banner at the top with thick white outline and drop shadow, red and white 3D megaphone icon beside it, "
-    +"empty cream colored rounded price badges on the right side, "
-    +"orange and yellow cat paw prints and golden sparkle stars scattered as decoration, "
-    +"color palette bright red cream brown warm orange, 4:3 composition, no text, no letters, no words";
+  // สร้างจากคอนเทนท์ของใบสั่งงานจริง: รายชื่อสินค้า + เงื่อนไขโปรจากโน้ต · อังกฤษ = โมเดลภาพเข้าใจดีสุด
+  const names=(j.items||[]).map(x=>x.name).join(", ");
+  const note=(j.note||"").trim();
+  const L=[
+    "Professional promotional poster for a pet shop, bright cheerful cartoon-commercial style, square 1:1 composition, 1080x1080.",
+    "Background: blurred pet store shelves with warm bokeh lighting.",
+    "A cute fluffy orange Persian cat smiling, peeking from the bottom left corner.",
+    "Round wooden podium displaying "+((j.items||[]).length||3)+" pet product packages standing upright.",
+    names?("Products in this promotion: "+names+"."):"",
+    note?("Promotion theme: "+note+"."):"",
+    "Large rounded red promo banner at the top with thick white outline and drop shadow, red and white 3D megaphone icon beside it.",
+    "Empty cream colored rounded price badges on the right side.",
+    "Orange and yellow paw prints and golden sparkle stars scattered as decoration.",
+    "Color palette: bright red, cream, brown, warm orange.",
+    "No readable text, no letters, no words in the image."
+  ].filter(Boolean);
+  return L.join("\\n");
 }
-function genImg(id,btn){
-  const j=JOBS[id]; if(!j) return;
+function openGen(id){
+  const ed=document.getElementById("ged"+id); if(!ed) return;
+  ed.style.display=ed.style.display==="none"?"block":"none";
+  const ta=document.getElementById("gta"+id);
+  if(ta&&!ta.value.trim()) ta.value=buildScenePrompt(JOBS[id]||{});
+}
+function genGo(id,btn){
+  const ta=document.getElementById("gta"+id);
+  const p=(ta&&ta.value.trim())||"";
+  if(!p){alert("คำสั่งภาพว่างอยู่");return;}
   btn.disabled=true; btn.textContent="⏳ กำลังสร้าง... (~15-30 วิ)";
-  fetch("/api/marketing-jobs/image",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:buildScenePrompt(j)})})
+  fetch("/api/marketing-jobs/image",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})
     .then(r=>r.json().then(d=>({ok:r.ok,d})))
     .then(({ok,d})=>{
-      btn.disabled=false; btn.textContent="🎨 สร้างภาพเลย";
+      btn.disabled=false; btn.textContent="🚀 สร้างภาพจากคำสั่งนี้";
       const box=document.getElementById("img"+id);
       if(!ok||!d.image){box.innerHTML='<p style="color:#a32d2d;font-size:13px">'+esc(d.error||"ไม่สำเร็จ")+'</p>';return;}
       const src="data:image/jpeg;base64,"+d.image;
       box.innerHTML='<img src="'+src+'" style="max-width:100%;border-radius:10px;border:1px solid var(--border);margin-top:8px" alt="ภาพฉากโปสเตอร์">'
         +'<div style="margin-top:6px"><a download="promo-job'+id+'.jpg" href="'+src+'" style="color:#9D681E;font-weight:700;font-size:13px">⬇️ ดาวน์โหลดภาพ</a>'
-        +' <span style="font-size:12px;color:var(--muted)">· ไม่ถูกใจกดสร้างใหม่ได้ (ได้ภาพใหม่ทุกครั้ง) · เอาเข้า Canva แล้วพิมพ์ข้อความไทย+แปะรูปสินค้าจริงทับ</span></div>';
+        +' <span style="font-size:12px;color:var(--muted)">· แก้คำสั่งแล้วกดสร้างใหม่ได้ · เอาเข้า Canva ขยายเป็น 1080 แล้วพิมพ์ข้อความไทย+แปะรูปสินค้าจริงทับ</span></div>';
     })
-    .catch(e=>{btn.disabled=false;btn.textContent="🎨 สร้างภาพเลย";alert("สร้างภาพไม่สำเร็จ: "+e);});
+    .catch(e=>{btn.disabled=false;btn.textContent="🚀 สร้างภาพจากคำสั่งนี้";alert("สร้างภาพไม่สำเร็จ: "+e);});
 }
 function delJob(id){
   if(!confirm("ลบใบสั่งงาน #"+id+" ถาวรเลยหรือไม่? (กู้คืนไม่ได้)")) return;
@@ -375,7 +391,12 @@ function toolkit(j){
     +'<div style="margin-top:12px"><b>✍️ 1) ร่างคอนเทนท์</b> (คัดลอกไปแก้/เติมได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildCaption(j))+'</pre></div>'
     +'<div><b>🎨 2) Prompt สร้างสื่อ</b> (วางในเครื่องมือสร้างภาพ AI ได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildPrompt(j))+'</pre>'
     +'<div style="font-size:12px;color:#8a5a12;margin:-6px 0 12px">💡 เคล็ดลับ: ตัวหนังสือไทยจาก AI มักเพี้ยน — ให้ AI สร้างฉาก แล้วพิมพ์ข้อความไทยทับเองใน Canva จะคมชัด 100%</div></div>'
-    +'<div style="margin-bottom:12px"><b>🖼️ 3) สร้างภาพฉากอัตโนมัติ</b> <button style="background:#173D61;color:#fff;border:none;border-radius:8px;padding:6px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer;margin-left:8px" onclick="genImg('+j.id+',this)">🎨 สร้างภาพเลย</button><div id="img'+j.id+'"></div></div>'
+    +'<div style="margin-bottom:12px"><b>🖼️ 3) สร้างภาพฉากอัตโนมัติ (1:1)</b> <button style="background:#173D61;color:#fff;border:none;border-radius:8px;padding:6px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer;margin-left:8px" onclick="openGen('+j.id+')">🎨 เตรียมสร้างภาพ</button>'
+    +'<div id="ged'+j.id+'" style="display:none;margin-top:8px">'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:4px">ตรวจ/แก้/เพิ่มรายละเอียดคำสั่งภาพได้ก่อนสร้าง (สร้างจากสินค้า+เงื่อนไขโปรของใบนี้แล้ว · จะได้ภาพจัตุรัส เอาไปขยายเป็น 1080 ใน Canva) · อยากได้ภาพแนบอ้างอิง/คุณภาพสูงกว่า ให้ก๊อปคำสั่งนี้ไปใช้กับ ChatGPT แทน</div>'
+    +'<textarea id="gta'+j.id+'" style="width:100%;min-height:150px;font-family:inherit;font-size:12.5px;line-height:1.6;padding:10px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box"></textarea>'
+    +'<button style="background:#2f7d4f;color:#fff;border:none;border-radius:8px;padding:7px 18px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer;margin-top:6px" onclick="genGo('+j.id+',this)">🚀 สร้างภาพจากคำสั่งนี้</button>'
+    +'</div><div id="img'+j.id+'"></div></div>'
     +'<div><b>📌 4) ขั้นตอนที่ต้องทำ</b><ol style="margin:6px 0 4px;padding-left:22px;line-height:1.9">'
     +'<li>เขียน/ปรับคอนเทนท์จากร่างข้อ 1</li>'
     +'<li>สร้างภาพ (ปุ่มข้อ 3) หรือใช้ Prompt ข้อ 2 กับเครื่องมืออื่น → แต่งใน Canva</li>'
