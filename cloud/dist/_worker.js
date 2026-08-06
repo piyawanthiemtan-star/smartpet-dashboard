@@ -350,8 +350,10 @@ function genGo(id,btn){
 function printTags(id){
   // ป้ายโปรโมชั่นติดชั้นวาง — กระดาษ 80mm (เครื่องพิมพ์ใบเสร็จ) 1 ป้าย/สินค้า มีเส้นตัดคั่น
   const j=JOBS[id]; if(!j) return;
+  const w=window.open("","_blank");   // เปิดหน้าต่างทันทีตอนกดปุ่ม — ถามทีหลังจะโดนเบราว์เซอร์บล็อกป๊อปอัพ
+  if(!w){alert("เบราว์เซอร์บล็อกป๊อปอัพ — กดอนุญาต popup ของเว็บนี้ที่ไอคอนขวาบนช่องที่อยู่ แล้วลองใหม่");return;}
   const period=prompt("ระยะเวลาจัดโปรโมชั่น (เช่น 7 - 31 ส.ค. 69):","");
-  if(period===null) return;
+  if(period===null){w.close();return;}
   const note=(j.note||"").trim();
   const blocks=(j.items||[]).map(function(x){
     const promo=note||("ราคาพิเศษ "+x.promo+".- (ปกติ "+x.price+".-)");
@@ -363,7 +365,6 @@ function printTags(id){
       +(period.trim()?'<div class="pd">ระยะเวลา: '+esc(period.trim())+'</div>':'')
       +'</div><div class="cut">&#9986; --------------------------------</div>';
   }).join("");
-  const w=window.open("","_blank");
   w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ป้ายโปรโมชั่น 80mm</title><style>'
     +'@page{size:80mm auto;margin:2mm}'
     +'body{width:72mm;margin:0 auto;font-family:Tahoma,sans-serif;color:#000;background:#fff}'
@@ -423,20 +424,15 @@ function toolkit(j){
   const box='background:#FAF6F1;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:6px 0 12px;white-space:pre-wrap;font-size:13px;line-height:1.6;font-family:inherit';
   const cbtn='background:transparent;color:#9D681E;border:1px solid #D8B479;border-radius:6px;padding:3px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;margin-left:8px';
   return '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:#173D61">🧰 ชุดเครื่องมือทีมการตลาด (คอนเทนท์ · Prompt สื่อ · ขั้นตอน)</summary>'
-    +'<div style="margin-top:12px"><b>✍️ 1) ร่างคอนเทนท์</b> (คัดลอกไปแก้/เติมได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildCaption(j))+'</pre></div>'
-    +'<div><b>🎨 2) Prompt สร้างสื่อ</b> (วางในเครื่องมือสร้างภาพ AI ได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildPrompt(j))+'</pre>'
-    +'<div style="font-size:12px;color:#8a5a12;margin:-6px 0 12px">💡 เคล็ดลับ: ตัวหนังสือไทยจาก AI มักเพี้ยน — ให้ AI สร้างฉาก แล้วพิมพ์ข้อความไทยทับเองใน Canva จะคมชัด 100%</div></div>'
-    +'<div style="margin-bottom:12px"><b>🖼️ 3) สร้างภาพฉากอัตโนมัติ (1:1)</b> <button style="background:#173D61;color:#fff;border:none;border-radius:8px;padding:6px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer;margin-left:8px" onclick="openGen('+j.id+')">🎨 เตรียมสร้างภาพ</button>'
-    +'<div id="ged'+j.id+'" style="display:none;margin-top:8px">'
-    +'<div style="font-size:12px;color:var(--muted);margin-bottom:4px">ตรวจ/แก้/เพิ่มรายละเอียดคำสั่งภาพได้ก่อนสร้าง (สร้างจากสินค้า+เงื่อนไขโปรของใบนี้แล้ว · จะได้ภาพจัตุรัส เอาไปขยายเป็น 1080 ใน Canva) · อยากได้ภาพแนบอ้างอิง/คุณภาพสูงกว่า ให้ก๊อปคำสั่งนี้ไปใช้กับ ChatGPT แทน</div>'
-    +'<textarea id="gta'+j.id+'" style="width:100%;min-height:150px;font-family:inherit;font-size:12.5px;line-height:1.6;padding:10px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box"></textarea>'
-    +'<button style="background:#2f7d4f;color:#fff;border:none;border-radius:8px;padding:7px 18px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer;margin-top:6px" onclick="genGo('+j.id+',this)">🚀 สร้างภาพจากคำสั่งนี้</button>'
-    +'</div><div id="img'+j.id+'"></div></div>'
-    +'<div><b>📌 4) ขั้นตอนที่ต้องทำ</b><ol style="margin:6px 0 4px;padding-left:22px;line-height:1.9">'
-    +'<li>เขียน/ปรับคอนเทนท์จากร่างข้อ 1</li>'
-    +'<li>สร้างภาพ (ปุ่มข้อ 3) หรือใช้ Prompt ข้อ 2 กับเครื่องมืออื่น → แต่งใน Canva</li>'
-    +'<li><b>โพสต์ลงเพจ Facebook ของร้าน</b></li>'
-    +'<li>ตั้งโปรโมชั่นใน POS แล้วกลับมากด "✅ ปิดงาน" <b>พร้อมกรอกชื่อโปรโมชั่นที่ตั้งใน POS</b></li>'
+    +'<div style="margin-top:12px"><b>✍️ 1) ร่างคอนเทนท์ไปวางใน Facebook</b> (คัดลอกไปแก้/เติมได้เลย)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildCaption(j))+'</pre></div>'
+    +'<div><b>🎨 2) Prompt สร้างสื่อใน ChatGPT</b> (คัดลอกไปแก้ไขและสร้างภาพได้เลย · แนบภาพอ้างอิงใน ChatGPT ได้)<button style="'+cbtn+'" onclick="copyPre(this)">คัดลอก</button><pre style="'+box+'">'+esc(buildPrompt(j))+'</pre>'
+    +'<div style="font-size:12px;color:#8a5a12;margin:-6px 0 12px">💡 ตัวหนังสือไทยในภาพ AI อาจเพี้ยน — ตรวจ/พิมพ์ทับใน Canva ก่อนโพสต์</div></div>'
+    +'<div><b>📌 3) ขั้นตอนที่ต้องทำทั้งหมด</b><ol style="margin:6px 0 4px;padding-left:22px;line-height:1.9">'
+    +'<li>คัดลอกคอนเทนท์ข้อ 1 → แก้/เติม → <b>โพสต์ลงเพจ Facebook ของร้าน</b></li>'
+    +'<li>คัดลอก Prompt ข้อ 2 → สร้างภาพใน ChatGPT → แต่งใน Canva</li>'
+    +'<li><b>ตั้งโปรโมชั่นใน Onepointofsale</b></li>'
+    +'<li>กด "✅ ปิดงาน" แล้ว<b>วางชื่อโปรโมชั่นจาก Onepointofsale</b></li>'
+    +'<li>กด "🖨 ป้ายชั้นวาง 80mm" พิมพ์ไปติดที่ชั้นสินค้า</li>'
     +'</ol></div></details>';
 }
 function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
