@@ -80,6 +80,28 @@ jobs:
             echo "รวมใบปิดยอดฉบับบัญชีเข้าเว็บแล้ว"
           fi
 
+      - name: Generate ML2 requisition (ใบเบิกสินค้า — รันบนคลาวด์ ไม่พึ่งเครื่อง Owner)
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          # เตรียมชื่อไฟล์ให้ตรงรูปแบบที่ ml2_report.py คาดหวัง (ML2: Backup-*.db · ML3: "ML3 YYYY-MM-DD.db")
+          ml2=$(ls backup/ML2-Backup-*.db 2>/dev/null | head -1)
+          ml3=$(ls backup/ML3-Backup-*.db 2>/dev/null | head -1)
+          if [ -z "$ml2" ] || [ -z "$ml3" ]; then
+            echo "backup ไม่ครบ 2 สาขา — คงใบเบิกเดิมจาก repo ไว้"; exit 0
+          fi
+          mkdir -p ml2work ml3work
+          cp "$ml2" "ml2work/$(basename "$ml2" | sed 's/^ML2-//')"
+          read y m d <<< "$(basename "$ml3" | sed -E 's/^ML3-Backup-([0-9]+)-([0-9]+)-([0-9]+)T.*/\1 \2 \3/')"
+          cp "$ml3" "$(printf 'ml3work/ML3 %04d-%02d-%02d.db' "$y" "$m" "$d")"
+          if ML2R_BACKUP_DIR=ml2work ML2R_ML3_DIR=ml3work \
+             ML2R_MASTER_XLSX=Master_Multiplier.xlsx ML2R_OUT=ml2out python ml2_report.py; then
+            cp ml2out/requisition_document.html cloud/dist/requisition.html
+            echo "ใบเบิก ML2 สร้างบนคลาวด์สำเร็จ"
+          else
+            echo "ml2_report ล้มเหลว — คงใบเบิกเดิมจาก repo ไว้ (build เดินต่อ)"
+          fi
+
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
