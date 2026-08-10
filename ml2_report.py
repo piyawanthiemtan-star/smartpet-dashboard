@@ -612,7 +612,8 @@ def _day_th(day):
 
 
 def build_requisition_html(path, rows, doc_no, day, printed_at,
-                           day_options=None, historical=False):
+                           day_options=None, historical=False,
+                           purchase=None, summary=None):
     """สร้างเอกสารใบเบิกสินค้าแบบพิมพ์ได้ (HTML -> Ctrl+P บันทึกเป็น PDF ได้).
     ซ่อนคอลัมน์ priority_flag / convert_note ตามที่ตกลง (ยังเก็บใน CSV).
 
@@ -633,6 +634,38 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
                   f'<select onchange="location.href=this.value">{"".join(opts)}</select></div>')
     hist_note = ('<div class="histnote">⚠ ใบย้อนหลัง — คำนวณใหม่จากสต๊อกปัจจุบัน '
                  'ตัวเลขอาจต่างจากใบที่พิมพ์เช้าวันนั้นเล็กน้อย</div>') if historical else ""
+
+    # กล่องสรุปหัวใบ [Owner ขอ 2026-08-10]: ขายทั้งหมดกี่รายการ แยกไปไหนบ้าง เลขบวกกันลงตัว
+    sum_html = ""
+    if summary:
+        other = summary["sold"] - len(rows) - summary["skipped"] - summary["ml3out"]
+        parts = [f'ขายทั้งหมด <b>{summary["sold"]}</b> รายการ',
+                 f'เข้าใบเบิก <b>{len(rows)}</b>',
+                 f'ของยังพอ-ยังไม่เบิก <b>{summary["skipped"]}</b>']
+        if summary["ml3out"]:
+            parts.append(f'<span class="alert">ML3 หมด รอสั่งซื้อ <b>{summary["ml3out"]}</b></span>')
+        if other > 0:
+            parts.append(f'อื่นๆ (บริการ/กฎแพ็ค) <b>{other}</b>')
+        sum_html = '<div class="sumbox">' + " · ".join(parts) + '</div>'
+
+    # ตารางท้ายใบ: ML2 ขายออกแต่ ML3 หมด — ฝ่ายคลังใช้แจ้งฝ่ายจัดซื้อ [Owner ขอ 2026-08-10]
+    purchase_html = ""
+    if purchase:
+        prow = []
+        for i, r in enumerate(purchase, 1):
+            prow.append(
+                "<tr>"
+                f"<td class='c'>{i}</td>"
+                f"<td>{html.escape(str(r['single_barcode']))}</td>"
+                f"<td>{html.escape(r['name'])}</td>"
+                f"<td class='c'>{html.escape(str(r['qty_sold_today']))}</td>"
+                f"<td class='c'>{html.escape(str(r['stock_now']))}</td>"
+                "</tr>")
+        purchase_html = (
+            f'<div class="mlout"><h2>⚠ ML2 ขายออกแต่ ML3 หมด — ฝ่ายคลังส่งรายการนี้ให้ฝ่ายจัดซื้อ ({len(purchase)} รายการ)</h2>'
+            '<table><thead><tr><th>ลำดับ</th><th>บาร์โค้ด</th><th>สินค้า</th>'
+            '<th>ขายวันนี้</th><th>ML2 เหลือ</th></tr></thead><tbody>'
+            + "".join(prow) + '</tbody></table></div>')
 
     # [มติทีมคลัง 2026-08-10] ไม่คั่นหัวข้อคลาส ABC แล้ว — คั่นเฉพาะหมวดสินค้า
     body_rows = []
@@ -697,6 +730,10 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
                background:#1a3a5c; color:#fff; border:none; border-radius:6px; cursor:pointer; }}
   .histnote {{ background:#fff3e0; border:1px solid #e0a960; border-radius:4px;
                padding:4px 8px; font-size:12px; margin:4px 0; }}
+  .sumbox {{ background:#eef3f7; border-radius:6px; padding:6px 10px; font-size:13px; margin:6px 0; }}
+  .sumbox .alert {{ color:#a32d2d; }}
+  .mlout h2 {{ font-size:15px; color:#a32d2d; margin:16px 0 4px; }}
+  .mlout {{ page-break-inside:avoid; break-inside:avoid; }}
 
   /* มุมมองบนจอ: ทำให้ดูเหมือนแผ่น A4 */
   @media screen {{
@@ -724,6 +761,7 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
     <div>สาขา: <b>{html.escape(BRANCH_NAME)}</b><br>วันที่ขาย: <b>{day_th}</b></div>
     <div style="text-align:right">เลขที่: <span class="docno">{html.escape(doc_no)}</span><br>พิมพ์เมื่อ: {printed_at}</div>
   </div>
+  {sum_html}
   <table>
     <thead><tr>
       <th>ลำดับ</th><th>บาร์โค้ด</th><th>สินค้า</th>
@@ -734,6 +772,7 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
     </tbody>
   </table>
   <p class="total">รวมทั้งสิ้น {len(rows)} รายการ</p>
+  {purchase_html}
   <div class="sign">
     <div><div class="line">ผู้ขอเบิก</div></div>
     <div><div class="line">ผู้จ่ายสินค้า</div></div>
@@ -752,17 +791,19 @@ def build_day_requisition(con, day, pack_map, bysingle, ml3_stock, doc_no):
     """คำนวณรายการเบิกของวัน `day` ด้วยแกนเดียวกับใบหลัก — ใช้สร้างใบย้อนหลัง.
 
     หมายเหตุ: สต๊อก (ML2/ML3) ในไฟล์ backup เป็นค่าปัจจุบัน ใบย้อนหลังจึงเป็นการ
-    คำนวณใหม่จากสต๊อกวันนี้ อาจต่างจากใบที่พิมพ์เช้าวันนั้นจริงเล็กน้อย."""
+    คำนวณใหม่จากสต๊อกวันนี้ อาจต่างจากใบที่พิมพ์เช้าวันนั้นจริงเล็กน้อย.
+    คืน (รายการเบิก, รายการ ML3 หมด, จำนวนที่ขายทั้งหมด, จำนวนที่ข้ามเพราะของพอ)."""
     abc = compute_abc(con, day, ABC_WINDOW_DAYS)
     avg_daily = compute_avg_daily(con, day)
     avg_recent = compute_avg_daily(con, day, COVER_RECENT_DAYS)
     sales = query_today_sales(con, day)
-    rows, _issues, _skipped = build_requisition(sales, pack_map, bysingle, abc, avg_daily, avg_recent)
+    rows, _issues, skipped = build_requisition(sales, pack_map, bysingle, abc, avg_daily, avg_recent)
+    purchase = []
     if ml3_stock:
-        rows, _purchase = apply_ml3_availability(rows, ml3_stock)
-    for r in rows:
+        rows, purchase = apply_ml3_availability(rows, ml3_stock)
+    for r in rows + purchase:
         r["doc_no"] = doc_no
-    return rows
+    return rows, purchase, len(sales), len(skipped)
 
 
 def main():
@@ -869,20 +910,25 @@ def main():
 
     # เอกสารใบเบิกแบบพิมพ์ได้ (ซ่อน priority_flag / convert_note)
     doc_path = os.path.join(OUTPUT_DIR, "requisition_document.html")
+    main_summary = {"sold": len(today_sales), "skipped": len(skipped), "ml3out": len(purchase)}
     build_requisition_html(doc_path, requisition, doc_no, day, printed_at,
-                           day_options=hist_days)
+                           day_options=hist_days, purchase=purchase, summary=main_summary)
 
     # ---- ใบเบิกย้อนหลัง (เลือกวันที่บนเว็บ) [Owner ขอ 2026-08-10] ----
     for d in hist_days:
         if d == day:
-            rows_d, doc_d, hist = requisition, doc_no, False
+            rows_d, purch_d, sum_d, hist = requisition, purchase, main_summary, False
+            doc_d = doc_no
         else:
             doc_d = f"{BRANCH_CODE}-{d.replace('-', '')}-001"
-            rows_d = build_day_requisition(con, d, pack_map, bysingle, ml3_stock, doc_d)
+            rows_d, purch_d, n_sold, n_skip = build_day_requisition(
+                con, d, pack_map, bysingle, ml3_stock, doc_d)
+            sum_d = {"sold": n_sold, "skipped": n_skip, "ml3out": len(purch_d)}
             hist = True
         build_requisition_html(
             os.path.join(OUTPUT_DIR, "req_days", f"requisition-{d}.html"),
-            rows_d, doc_d, d, printed_at, day_options=hist_days, historical=hist)
+            rows_d, doc_d, d, printed_at, day_options=hist_days, historical=hist,
+            purchase=purch_d, summary=sum_d)
     print(f"  ใบเบิกย้อนหลัง {len(hist_days)} วัน -> output/req_days/ (ดรอปดาวน์เลือกวันที่บนเว็บ)")
     # รายการที่ข้อมูลมาสเตอร์ขัดกัน -> ไว้ให้ไปแก้ต้นทาง
     write_csv(os.path.join(OUTPUT_DIR, "master_issues.csv"), issues,
