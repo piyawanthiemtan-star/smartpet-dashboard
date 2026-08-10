@@ -197,7 +197,22 @@ def apply_ml3_availability(requisition, ml3_stock):
         need_pcs = int(r.get("total_pieces") or r["req_qty"])
         avail = ml3_stock.get(bc)
 
-        if avail is None or avail <= 0:              # ML3 ไม่มี/หมด -> ต้องสั่งซื้อเข้า
+        if avail is None or avail <= 0:              # ML3 ไม่มี/หมด -> เช็คบาร์โค้ดพี่น้องก่อนฟันธง
+            # ธรรมเนียมร้าน: หน่วยย่อยใช้บาร์โค้ดฐานเติม "-1" (เช่น กล่อง 366...370 / หลอดเดี่ยว 366...370-1)
+            # [Owner จับได้ 2026-08-10: NEXGARD กล่อง=0 แต่หลอดเดี่ยว(-1)=38 ระบบฟันธง "หมด" ผิด —
+            #  สแกนทั้ง ML3 พบ 144 คู่ และ 52 คู่อยู่ในสภาพ "ฐานหมดแต่ -1 มีของ"]
+            b = str(bc)
+            if b.endswith("-1"):
+                sib_qty, sib_label = ml3_stock.get(b[:-2]) or 0, "แบบกล่อง/แพ็ค"
+            else:
+                sib_qty, sib_label = ml3_stock.get(b + "-1") or 0, "หน่วยย่อย(-1)"
+            if sib_qty > 0:
+                # ML3 มีของจริง แค่อยู่ใต้บาร์โค้ดอีกหน่วย -> คงไว้ในใบเบิก ให้ทีมคลังตัดสินใจจ่าย
+                r["ml3_status"] = "มีหน่วยอื่น"
+                r["ml3_stock"] = f"{sib_label} {sib_qty:g}"
+                r["convert_note"] = (r.get("convert_note", "") + f" | ML3 มี{sib_label} {sib_qty:g}").strip(" |")
+                keep.append(r)
+                continue
             r["ml3_stock"] = "ไม่มีสินค้า" if avail is None else "0"
             purchase.append(r)
             continue
