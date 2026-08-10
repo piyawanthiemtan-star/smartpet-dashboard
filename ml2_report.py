@@ -183,9 +183,10 @@ def load_ml3_stock(path):
     return stock
 
 
-def apply_ml3_availability(requisition, ml3_stock):
+def apply_ml3_availability(requisition, ml3_stock, siblings=None):
     """เช็คใบเบิก ML2 กับสต๊อก ML3: ปรับจำนวนเท่าที่ ML3 มี + แยกตัวที่ ML3 หมดออก.
 
+    siblings = ดัชนีบาร์โค้ดพี่น้องจากมาสเตอร์ (build_sibling_map) — กันฟันธง "หมด" ผิด
     คืน (รายการเบิกที่ ML3 จ่ายได้, รายการที่ต้องสั่งซื้อเข้า ML3)."""
     keep, purchase = [], []
     for r in requisition:
@@ -198,19 +199,28 @@ def apply_ml3_availability(requisition, ml3_stock):
         avail = ml3_stock.get(bc)
 
         if avail is None or avail <= 0:              # ML3 ไม่มี/หมด -> เช็คบาร์โค้ดพี่น้องก่อนฟันธง
-            # ธรรมเนียมร้าน: หน่วยย่อยใช้บาร์โค้ดฐานเติม "-1" (เช่น กล่อง 366...370 / หลอดเดี่ยว 366...370-1)
-            # [Owner จับได้ 2026-08-10: NEXGARD กล่อง=0 แต่หลอดเดี่ยว(-1)=38 ระบบฟันธง "หมด" ผิด —
-            #  สแกนทั้ง ML3 พบ 144 คู่ และ 52 คู่อยู่ในสภาพ "ฐานหมดแต่ -1 มีของ"]
-            b = str(bc)
-            if b.endswith("-1"):
-                sib_qty, sib_label = ml3_stock.get(b[:-2]) or 0, "แบบกล่อง/แพ็ค"
-            else:
-                sib_qty, sib_label = ml3_stock.get(b + "-1") or 0, "หน่วยย่อย(-1)"
+            # [Owner จับได้+ชี้ทาง 2026-08-10: NEXGARD กล่อง=0 แต่หลอดเดี่ยว -1 = 38 และ
+            #  Master แถว 791-792 มีคู่นี้อยู่แล้ว] ลำดับการเช็ค:
+            #  1) มาสเตอร์ (แม่นสุด รู้ตัวคูณด้วย)  2) ธรรมเนียมชื่อ "-1" (สำรอง เผื่อมาสเตอร์ไม่มีคู่นั้น)
+            sib_qty, sib_label = 0, ""
+            for cand in (siblings.get(str(bc), []) if siblings else []):
+                q = ml3_stock.get(cand["bc"]) or 0
+                if q > 0:
+                    sib_qty = q
+                    sib_label = (f"หน่วยย่อย {q:g} (x{cand['mult']}/แพ็ค)" if cand["rel"] == "single"
+                                 else f"แบบแพ็ค {q:g} (x{cand['mult']})")
+                    break
+            if not sib_qty:
+                b = str(bc)
+                alt = (ml3_stock.get(b[:-2]) if b.endswith("-1") else ml3_stock.get(b + "-1")) or 0
+                if alt > 0:
+                    sib_qty = alt
+                    sib_label = ("แบบกล่อง/แพ็ค" if b.endswith("-1") else "หน่วยย่อย(-1)") + f" {alt:g}"
             if sib_qty > 0:
                 # ML3 มีของจริง แค่อยู่ใต้บาร์โค้ดอีกหน่วย -> คงไว้ในใบเบิก ให้ทีมคลังตัดสินใจจ่าย
                 r["ml3_status"] = "มีหน่วยอื่น"
-                r["ml3_stock"] = f"{sib_label} {sib_qty:g}"
-                r["convert_note"] = (r.get("convert_note", "") + f" | ML3 มี{sib_label} {sib_qty:g}").strip(" |")
+                r["ml3_stock"] = sib_label
+                r["convert_note"] = (r.get("convert_note", "") + f" | ML3 มี{sib_label}").strip(" |")
                 keep.append(r)
                 continue
             r["ml3_stock"] = "ไม่มีสินค้า" if avail is None else "0"
@@ -270,6 +280,21 @@ def load_master_multiplier(path):
         })
     wb.close()
     return bysingle
+
+
+def build_sibling_map(bysingle):
+    """ดัชนี 'บาร์โค้ดพี่น้อง' จากมาสเตอร์ [Owner ชี้ 2026-08-10: Master มีคู่กล่อง↔หน่วยย่อยอยู่แล้ว ต้องใช้]:
+    ขายด้วยบาร์โค้ดแพ็ค/กล่อง -> พี่น้องคือหน่วยย่อย (single) และกลับกัน — ใช้ตอนเช็คสต๊อก ML3
+    เพื่อไม่ฟันธง 'หมด' ทั้งที่ของอยู่ใต้บาร์โค้ดอีกหน่วย."""
+    sib = {}
+    for single, rows in bysingle.items():
+        for r in rows:
+            pb = r.get("pack_barcode") or ""
+            if not pb:
+                continue
+            sib.setdefault(pb, []).append({"bc": single, "mult": r["mult"], "rel": "single"})
+            sib.setdefault(single, []).append({"bc": pb, "mult": r["mult"], "rel": "pack"})
+    return sib
 
 
 def resolve_pack(barcode, pos_name, bysingle):
@@ -879,7 +904,7 @@ def build_purchase_html(path, purchase, day, req_doc_no, printed_at, day_options
         f.write(doc)
 
 
-def build_day_requisition(con, day, pack_map, bysingle, ml3_stock, doc_no):
+def build_day_requisition(con, day, pack_map, bysingle, ml3_stock, doc_no, siblings=None):
     """คำนวณรายการเบิกของวัน `day` ด้วยแกนเดียวกับใบหลัก — ใช้สร้างใบย้อนหลัง.
 
     หมายเหตุ: สต๊อก (ML2/ML3) ในไฟล์ backup เป็นค่าปัจจุบัน ใบย้อนหลังจึงเป็นการ
@@ -892,7 +917,7 @@ def build_day_requisition(con, day, pack_map, bysingle, ml3_stock, doc_no):
     rows, _issues, skipped = build_requisition(sales, pack_map, bysingle, abc, avg_daily, avg_recent)
     purchase = []
     if ml3_stock:
-        rows, purchase = apply_ml3_availability(rows, ml3_stock)
+        rows, purchase = apply_ml3_availability(rows, ml3_stock, siblings)
     for r in rows + purchase:
         r["doc_no"] = doc_no
     return rows, purchase, len(sales), len(skipped)
@@ -923,8 +948,9 @@ def main():
 
     pack_map = load_master_pack(MASTER_CSV)
     bysingle = load_master_multiplier(MASTER_XLSX)
+    siblings = build_sibling_map(bysingle)   # คู่กล่อง↔หน่วยย่อยจากมาสเตอร์ (เช็คสต๊อก ML3)
     print(f"  Master_Multiplier.xlsx: สินค้า {len(bysingle)} บาร์โค้ด "
-          f"({sum(len(v) for v in bysingle.values())} แถวแพ็ค)")
+          f"({sum(len(v) for v in bysingle.values())} แถวแพ็ค · คู่พี่น้อง {len(siblings)} บาร์โค้ด)")
 
     today_sales = query_today_sales(con, day)
     abc = compute_abc(con, day, ABC_WINDOW_DAYS)
@@ -940,7 +966,7 @@ def main():
     if ml3_path:
         ml3_stock = load_ml3_stock(ml3_path)
         print(f"  สต๊อก ML3: {os.path.basename(ml3_path)} ({len(ml3_stock):,} รายการ)")
-        requisition, purchase = apply_ml3_availability(requisition, ml3_stock)
+        requisition, purchase = apply_ml3_availability(requisition, ml3_stock, siblings)
     else:
         print("  !! ไม่พบ backup ML3 -> ข้ามการเช็คสต๊อกต้นทาง")
 
@@ -1014,7 +1040,7 @@ def main():
         else:
             doc_d = f"{BRANCH_CODE}-{d.replace('-', '')}-001"
             rows_d, purch_d, n_sold, n_skip = build_day_requisition(
-                con, d, pack_map, bysingle, ml3_stock, doc_d)
+                con, d, pack_map, bysingle, ml3_stock, doc_d, siblings)
             sum_d = {"sold": n_sold, "skipped": n_skip, "ml3out": len(purch_d)}
             hist = True
         build_requisition_html(
