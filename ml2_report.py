@@ -690,8 +690,11 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
   .sign {{ display:flex; justify-content:space-around; margin-top:40px; text-align:center; }}
   .sign div {{ width:30%; }}
   .line {{ border-top:1px dotted #333; margin-top:36px; padding-top:4px; }}
-  .daysel {{ text-align:right; font-size:13px; margin:0 0 6px; }}
+  .toolbar {{ display:flex; justify-content:flex-end; align-items:center; gap:10px; margin:0 0 6px; }}
+  .daysel {{ font-size:13px; }}
   .daysel select {{ font-family:inherit; font-size:13px; padding:3px 6px; }}
+  .printbtn {{ font-family:inherit; font-size:13px; font-weight:bold; padding:5px 16px;
+               background:#1a3a5c; color:#fff; border:none; border-radius:6px; cursor:pointer; }}
   .histnote {{ background:#fff3e0; border:1px solid #e0a960; border-radius:4px;
                padding:4px 8px; font-size:12px; margin:4px 0; }}
 
@@ -709,12 +712,12 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
     tr {{ page-break-inside:avoid; break-inside:avoid; }}
     tr.hcat {{ page-break-after:avoid; break-after:avoid; }}
     .sign {{ page-break-inside:avoid; break-inside:avoid; }}
-    .daysel {{ display:none; }}
+    .toolbar {{ display:none; }}
   }}
 </style></head>
 <body>
   <div class="sheet">
-  {daysel}
+  <div class="toolbar">{daysel}<button class="printbtn" onclick="window.print()">🖨 พิมพ์ใบเบิก</button></div>
   <h1>เอกสารใบเบิกสินค้า</h1>
   {hist_note}
   <div class="meta">
