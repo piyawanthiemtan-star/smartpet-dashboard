@@ -97,6 +97,11 @@ jobs:
           if ML2R_BACKUP_DIR=ml2work ML2R_ML3_DIR=ml3work \
              ML2R_MASTER_XLSX=Master_Multiplier.xlsx ML2R_OUT=ml2out python ml2_report.py; then
             cp ml2out/requisition_document.html cloud/dist/requisition.html
+            # ใบเบิกย้อนหลัง 7 วัน (ดรอปดาวน์เลือกวันที่) -> /requisition-YYYY-MM-DD
+            if ls ml2out/req_days/requisition-*.html >/dev/null 2>&1; then
+              cp ml2out/req_days/requisition-*.html cloud/dist/
+              echo "ใบเบิกย้อนหลัง $(ls ml2out/req_days | wc -l) วัน รวมเข้าเว็บแล้ว"
+            fi
             echo "ใบเบิก ML2 สร้างบนคลาวด์สำเร็จ"
           else
             echo "ml2_report ล้มเหลว — คงใบเบิกเดิมจาก repo ไว้ (build เดินต่อ)"

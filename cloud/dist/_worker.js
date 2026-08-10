@@ -1085,13 +1085,14 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return env.ASSETS.fetch(new Request(new URL("/accounting-daily", url), request));   // clean URL → accounting-daily.html
     }
 
-    // ใบเบิกสินค้า ML2 รายวัน — สิทธิ์เดียวกับการ์ดคลังและจัดส่ง (ไฟล์มาจาก ml2_report.py เครื่อง Owner)
-    if (execP === "requisition") {
+    // ใบเบิกสินค้า ML2 รายวัน — สิทธิ์เดียวกับการ์ดคลังและจัดส่ง (สร้างบนคลาวด์ทุก build)
+    // /requisition = วันล่าสุด · /requisition-YYYY-MM-DD = ใบย้อนหลัง (ดรอปดาวน์เลือกวันที่ในหน้า)
+    if (execP === "requisition" || /^requisition-\d{4}-\d{2}-\d{2}$/.test(execP)) {
       const sess = await readSession(request, env);
-      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/requisition") } });
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/" + execP) } });
       if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);
       if (!canSee(sess, "warehouse")) return forbidden("warehouse", sess);
-      return env.ASSETS.fetch(new Request(new URL("/requisition", url), request));   // clean URL → requisition.html
+      return env.ASSETS.fetch(new Request(new URL("/" + execP, url), request));   // clean URL → <execP>.html
     }
 
     // แผนกงาน = ต้องล็อกอิน + มีสิทธิ์

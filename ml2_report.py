@@ -65,6 +65,9 @@ REQ_COVER_DAYS_BY_ABC = {"A": 3, "B": 3, "C": 2, "-": 3}
 COVER_WINDOW_DAYS = 30
 COVER_RECENT_DAYS = 7
 
+# ใบเบิกย้อนหลังกี่วัน (ดรอปดาวน์เลือกวันที่บนเว็บ /requisition) [Owner ขอ 2026-08-10]
+HISTORY_DAYS = int(os.environ.get("ML2R_HISTORY_DAYS", "7"))
+
 BRANCH_CODE = "GRFML2"   # รหัสสาขาสำหรับเลขที่เอกสาร (GRF=ใบเบิก + ML2=สาขา)
 BRANCH_NAME = "ML2"
 
@@ -598,13 +601,35 @@ def write_csv(path, rows, headers):
             w.writerow({h: r.get(h, "") for h in headers})
 
 
-def build_requisition_html(path, rows, doc_no, day, printed_at):
-    """สร้างเอกสารใบเบิกสินค้าแบบพิมพ์ได้ (HTML -> Ctrl+P บันทึกเป็น PDF ได้).
-    ซ่อนคอลัมน์ priority_flag / convert_note ตามที่ตกลง (ยังเก็บใน CSV)."""
+def _day_th(day):
     try:
-        day_th = datetime.strptime(day, "%Y-%m-%d").strftime("%d/%m/%Y")
+        return datetime.strptime(day, "%Y-%m-%d").strftime("%d/%m/%Y")
     except (ValueError, TypeError):
-        day_th = day
+        return str(day)
+
+
+def build_requisition_html(path, rows, doc_no, day, printed_at,
+                           day_options=None, historical=False):
+    """สร้างเอกสารใบเบิกสินค้าแบบพิมพ์ได้ (HTML -> Ctrl+P บันทึกเป็น PDF ได้).
+    ซ่อนคอลัมน์ priority_flag / convert_note ตามที่ตกลง (ยังเก็บใน CSV).
+
+    day_options = รายการวันที่ (ใหม่->เก่า) สำหรับดรอปดาวน์เลือกวันย้อนหลังบนเว็บ
+    (ตัวแรกสุด = ล่าสุด ลิงก์ไป /requisition, วันอื่นไป /requisition-YYYY-MM-DD)
+    historical = ใบย้อนหลัง (คำนวณใหม่จากสต๊อกปัจจุบัน อาจต่างจากใบที่พิมพ์วันนั้นจริง)"""
+    day_th = _day_th(day)
+
+    # ดรอปดาวน์เลือกวันที่ — โชว์เฉพาะตอนเปิดผ่านเว็บ (ซ่อนตอนพิมพ์ + ตอนเปิดเป็นไฟล์ local)
+    daysel = ""
+    if day_options:
+        opts = []
+        for i, d in enumerate(day_options):
+            href = "/requisition" if i == 0 else f"/requisition-{d}"
+            sel = " selected" if d == day else ""
+            opts.append(f'<option value="{href}"{sel}>{_day_th(d)}</option>')
+        daysel = ('<div class="daysel">📅 เลือกวันที่: '
+                  f'<select onchange="location.href=this.value">{"".join(opts)}</select></div>')
+    hist_note = ('<div class="histnote">⚠ ใบย้อนหลัง — คำนวณใหม่จากสต๊อกปัจจุบัน '
+                 'ตัวเลขอาจต่างจากใบที่พิมพ์เช้าวันนั้นเล็กน้อย</div>') if historical else ""
 
     # [มติทีมคลัง 2026-08-10] ไม่คั่นหัวข้อคลาส ABC แล้ว — คั่นเฉพาะหมวดสินค้า
     body_rows = []
@@ -662,6 +687,10 @@ def build_requisition_html(path, rows, doc_no, day, printed_at):
   .sign {{ display:flex; justify-content:space-around; margin-top:40px; text-align:center; }}
   .sign div {{ width:30%; }}
   .line {{ border-top:1px dotted #333; margin-top:36px; padding-top:4px; }}
+  .daysel {{ text-align:right; font-size:13px; margin:0 0 6px; }}
+  .daysel select {{ font-family:inherit; font-size:13px; padding:3px 6px; }}
+  .histnote {{ background:#fff3e0; border:1px solid #e0a960; border-radius:4px;
+               padding:4px 8px; font-size:12px; margin:4px 0; }}
 
   /* มุมมองบนจอ: ทำให้ดูเหมือนแผ่น A4 */
   @media screen {{
@@ -677,11 +706,14 @@ def build_requisition_html(path, rows, doc_no, day, printed_at):
     tr {{ page-break-inside:avoid; break-inside:avoid; }}
     tr.hcat {{ page-break-after:avoid; break-after:avoid; }}
     .sign {{ page-break-inside:avoid; break-inside:avoid; }}
+    .daysel {{ display:none; }}
   }}
 </style></head>
 <body>
   <div class="sheet">
+  {daysel}
   <h1>เอกสารใบเบิกสินค้า</h1>
+  {hist_note}
   <div class="meta">
     <div>สาขา: <b>{html.escape(BRANCH_NAME)}</b><br>วันที่ขาย: <b>{day_th}</b></div>
     <div style="text-align:right">เลขที่: <span class="docno">{html.escape(doc_no)}</span><br>พิมพ์เมื่อ: {printed_at}</div>
@@ -702,10 +734,29 @@ def build_requisition_html(path, rows, doc_no, day, printed_at):
     <div><div class="line">ผู้รับสินค้า</div></div>
   </div>
   </div>
+  <script>/* เปิดเป็นไฟล์ local (file://) ลิงก์ /requisition ใช้ไม่ได้ -> ซ่อนดรอปดาวน์ */
+  if(location.protocol.indexOf("http")!==0){{var d=document.querySelector(".daysel");if(d)d.style.display="none";}}</script>
 </body></html>"""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(doc)
+
+
+def build_day_requisition(con, day, pack_map, bysingle, ml3_stock, doc_no):
+    """คำนวณรายการเบิกของวัน `day` ด้วยแกนเดียวกับใบหลัก — ใช้สร้างใบย้อนหลัง.
+
+    หมายเหตุ: สต๊อก (ML2/ML3) ในไฟล์ backup เป็นค่าปัจจุบัน ใบย้อนหลังจึงเป็นการ
+    คำนวณใหม่จากสต๊อกวันนี้ อาจต่างจากใบที่พิมพ์เช้าวันนั้นจริงเล็กน้อย."""
+    abc = compute_abc(con, day, ABC_WINDOW_DAYS)
+    avg_daily = compute_avg_daily(con, day)
+    avg_recent = compute_avg_daily(con, day, COVER_RECENT_DAYS)
+    sales = query_today_sales(con, day)
+    rows, _issues, _skipped = build_requisition(sales, pack_map, bysingle, abc, avg_daily, avg_recent)
+    if ml3_stock:
+        rows, _purchase = apply_ml3_availability(rows, ml3_stock)
+    for r in rows:
+        r["doc_no"] = doc_no
+    return rows
 
 
 def main():
@@ -746,6 +797,7 @@ def main():
     # เช็คสต๊อก ML3 (คลังต้นทาง): ปรับจำนวนเท่าที่มี + แยกตัวที่ต้องสั่งซื้อเข้า
     ml3_path = find_latest_ml3(ML3_DIR)
     purchase = []
+    ml3_stock = None
     if ml3_path:
         ml3_stock = load_ml3_stock(ml3_path)
         print(f"  สต๊อก ML3: {os.path.basename(ml3_path)} ({len(ml3_stock):,} รายการ)")
@@ -803,9 +855,29 @@ def main():
     write_csv(os.path.join(OUTPUT_DIR, "purchase_ml3.csv"), purchase,
               ["single_barcode", "name", "category", "abc", "qty_sold_today",
                "stock_now", "ml3_stock", "pack_mult"])
+    # รายชื่อวันย้อนหลังสำหรับดรอปดาวน์เลือกวันที่ (ใหม่ -> เก่า, ตัวแรก = วันล่าสุด)
+    hist_days = [r[0] for r in con.execute(
+        "SELECT DISTINCT date(Complete) d FROM Orders WHERE IsDelete=0 "
+        "AND date(Complete) <= ? AND date(Complete) > '2000-01-01' "
+        "ORDER BY d DESC LIMIT ?", (day, HISTORY_DAYS))]
+
     # เอกสารใบเบิกแบบพิมพ์ได้ (ซ่อน priority_flag / convert_note)
     doc_path = os.path.join(OUTPUT_DIR, "requisition_document.html")
-    build_requisition_html(doc_path, requisition, doc_no, day, printed_at)
+    build_requisition_html(doc_path, requisition, doc_no, day, printed_at,
+                           day_options=hist_days)
+
+    # ---- ใบเบิกย้อนหลัง (เลือกวันที่บนเว็บ) [Owner ขอ 2026-08-10] ----
+    for d in hist_days:
+        if d == day:
+            rows_d, doc_d, hist = requisition, doc_no, False
+        else:
+            doc_d = f"{BRANCH_CODE}-{d.replace('-', '')}-001"
+            rows_d = build_day_requisition(con, d, pack_map, bysingle, ml3_stock, doc_d)
+            hist = True
+        build_requisition_html(
+            os.path.join(OUTPUT_DIR, "req_days", f"requisition-{d}.html"),
+            rows_d, doc_d, d, printed_at, day_options=hist_days, historical=hist)
+    print(f"  ใบเบิกย้อนหลัง {len(hist_days)} วัน -> output/req_days/ (ดรอปดาวน์เลือกวันที่บนเว็บ)")
     # รายการที่ข้อมูลมาสเตอร์ขัดกัน -> ไว้ให้ไปแก้ต้นทาง
     write_csv(os.path.join(OUTPUT_DIR, "master_issues.csv"), issues,
               ["single_barcode", "pos_name", "master_rows"])
