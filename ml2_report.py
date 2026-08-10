@@ -190,8 +190,11 @@ def apply_ml3_availability(requisition, ml3_stock):
     keep, purchase = [], []
     for r in requisition:
         bc = r["single_barcode"]
-        mult = int(r["pack_mult"]) if r["pack_mult"] else 1
-        need_pcs = int(r["req_qty"]) * mult          # จำนวนที่อยากเบิก (เป็นชิ้น)
+        # จำนวนที่อยากเบิกเป็นชิ้นจริง = total_pieces (คำนวณถูกต้องทุกกรณีแล้วใน build_requisition)
+        # [แก้บั๊ก 2026-08-10 — Owner จับได้: เดิมคูณ req_qty*pack_mult ซ้ำ ทำให้แถวที่
+        #  "เบิกเป็นชิ้นแต่ pack_mult ยังติดมา" (เช่น x20 ขายช้า) ถูกคิดเกิน 20 เท่า
+        #  → ZOI CAT ขาย 7 ถูกคิดเป็น 140 → เห็น ML3 มี 113 → สั่งเบิก 113 ถุงผิดๆ]
+        need_pcs = int(r.get("total_pieces") or r["req_qty"])
         avail = ml3_stock.get(bc)
 
         if avail is None or avail <= 0:              # ML3 ไม่มี/หมด -> ต้องสั่งซื้อเข้า
