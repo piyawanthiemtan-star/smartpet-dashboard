@@ -11,3 +11,4 @@ cloud/dist/_worker.js.bak-*
 # POS backup db — ส่งผ่าน Release asset ไม่ commit เข้า repo
 backup/
 *.db
+.doc_seq.json

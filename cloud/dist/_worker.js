@@ -316,13 +316,19 @@ function printTags(id){
   if(!w){if(msg)msg.textContent="⚠️ เบราว์เซอร์บล็อกป๊อปอัพ — กดไอคอนที่มุมขวาของช่องที่อยู่เว็บ แล้วเลือกอนุญาต popup ของเว็บนี้ จากนั้นกดปุ่มใหม่";return;}
   if(msg)msg.textContent="";
   const note=(j.note||"").trim();
+  // ชื่อโปร: อ่านจากช่องกรอกสดๆ ก่อน (เผื่อพิมพ์ก่อนกดปิดงาน) แล้วค่อยดูที่บันทึกไว้ตอนปิดงาน
+  // [แก้ 2026-08-10: เดิมป้ายไม่เคยหยิบ pos_promo เลย — ชื่อโปรที่ใส่ทีหลังจึงไม่ขึ้นในใบปริ้น]
+  const pf=document.getElementById("pd"+id);
+  const pos=((pf&&pf.value.trim())||j.pos_promo||"").trim();
   const blocks=(j.items||[]).map(function(x){
-    const promo=note||("ราคาพิเศษ "+x.promo+".- (ปกติ "+x.price+".-)");
+    const promo=note||pos||("ราคาพิเศษ "+x.promo+".- (ปกติ "+x.price+".-)");
+    const tagLine=(pos&&pos!==promo)?'<div class="pd">🏷 '+esc(pos)+'</div>':'';
     return '<div class="tag">'
       +'<div class="hd">&#9733;&#9733; Promotion &#9733;&#9733;</div>'
       +'<div class="bc">'+esc(x.bc||"")+'</div>'
       +'<div class="nm">'+esc(x.name)+'</div>'
       +'<div class="pm">'+esc(promo)+'</div>'
+      +tagLine
       +'</div><div class="cut">&#9986; --------------------------------</div>';
   }).join("");
   w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ป้ายโปรโมชั่น 80mm</title><style>'
@@ -418,7 +424,7 @@ function load(){fetch("/api/marketing-jobs").then(r=>r.json()).then(js=>{
       +(j.status==="new"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:#C89535;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🔨 รับงานนี้</button>':"")
       +(j.status!=="done"?'<button onclick="setStatus('+j.id+',\\'done\\')" style="background:#2f7d4f;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">✅ ปิดงาน</button>':"")
       +(j.status==="done"?'<button onclick="setStatus('+j.id+',\\'doing\\')" style="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer">↩︎ เปิดงานอีกครั้ง</button>':"")
-      +'<input id="pd'+j.id+'" placeholder="กรอกชื่อโปรโมชั่นจาก Onepointofsale" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12.5px;width:230px">'
+      +'<input id="pd'+j.id+'" value="'+esc(j.pos_promo||"")+'" placeholder="กรอกชื่อโปรโมชั่นจาก Onepointofsale" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12.5px;width:230px">'
       +'<button onclick="printTags('+j.id+')" style="background:#6B4A33;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;cursor:pointer">🖨 ป้ายชั้นวาง 80mm</button>'
       +'<span id="pmsg'+j.id+'" style="font-size:12px;color:#a32d2d;flex-basis:100%"></span>'
       +(IS_ADMIN?'<button onclick="delJob('+j.id+',this)" style="background:transparent;color:#a32d2d;border:1px solid #e3b3b3;border-radius:8px;padding:7px 14px;font-family:inherit;cursor:pointer;margin-left:auto">🗑 ลบใบสั่งงาน</button>':"")

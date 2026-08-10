@@ -50,6 +50,21 @@ X20_FAST_SALE = 8    # ขาย >= 8 ชิ้น/วัน = ขายดี�
 X20_LOW_STOCK = 3    # ขาย < 8 แต่สต๊อกเหลือ <= 3 -> เบิก 1 แพ็ค (กันของหมด)
                       # ขาย < 8 และสต๊อกยังพอ (>3) -> เบิกเป็น "ชิ้น" เท่าที่ขายจริง ไม่ปัดเป็นแพ็ค (กันของกองเกิน)
 
+# กฎ "ของยังพอ ไม่ต้องเบิก" [Owner เคาะ 3 วัน 2026-08-10 + มติประชุมทีมคลัง 10 ส.ค.]
+# แก้ต้นเหตุสต๊อก C บวม (เคยถึง 66%): ML3 วิ่งส่งของให้ ML2 ทุกเช้า (lead time 1 วัน)
+# ML2 จึงไม่ต้องถือสต๊อกกันชนเยอะ — คงเหลือพอขายเกินเกณฑ์ -> ไม่เบิก ปล่อยขายกองเดิมก่อน
+# (รายการที่ถูกข้ามเก็บใน output/skipped_enough_stock.csv)
+#
+# วิธีคิด "พอขายกี่วัน" (มติทีมคลัง: ใช้ฤดูกาล + ABC ประกอบ):
+# - ฤดูกาล: ใช้ยอดขายเฉลี่ย/วัน ตัวที่แรงกว่า ระหว่างเฉลี่ย 30 วัน กับเฉลี่ย 7 วันล่าสุด
+#   (ช่วงเข้าหน้าขาย ยอด 7 วันจะพุ่งก่อน -> ระบบเห็นแล้วเบิกไวขึ้นเอง)
+# - ABC: คลาส A/B ใช้เกณฑ์ 3 วันตามที่ Owner เคาะ · คลาส C ใช้ 2 วัน (ตัดแรงกว่า
+#   เพราะ C คือกลุ่มที่บวมอยู่ ต้องระบายก่อน) — ปรับตัวเลขได้ที่ dict ข้างล่าง
+REQ_MAX_COVER_DAYS = 3
+REQ_COVER_DAYS_BY_ABC = {"A": 3, "B": 3, "C": 2, "-": 3}
+COVER_WINDOW_DAYS = 30
+COVER_RECENT_DAYS = 7
+
 BRANCH_CODE = "GRFML2"   # รหัสสาขาสำหรับเลขที่เอกสาร (GRF=ใบเบิก + ML2=สาขา)
 BRANCH_NAME = "ML2"
 
@@ -188,6 +203,9 @@ def apply_ml3_availability(requisition, ml3_stock):
             r["req_qty"] = int(avail)
             r["req_unit"] = r.get("base_unit") or r["req_unit"]
             r["pack_mult"] = ""
+            r["total_pieces"] = int(avail)           # เบิกเป็นชิ้นแล้ว รวมชิ้น = จำนวนเดียวกัน
+            # เบิกเป็นชิ้นแล้ว ต้องโชว์บาร์โค้ดชิ้น ไม่ใช่บาร์โค้ดแพ็ค [ทีมคลังเคาะ 2026-08-10]
+            r["req_barcode"] = r["single_barcode"]
             r["convert_note"] = (r.get("convert_note", "") + f" | ML3 มี {avail:g} เบิกเท่าที่มี").strip(" |")
         r["ml3_stock"] = f"{avail:g}"
         keep.append(r)
@@ -350,6 +368,21 @@ def compute_abc(con, day, window_days):
     return abc
 
 
+def compute_avg_daily(con, day, window_days=COVER_WINDOW_DAYS):
+    """ยอดขายเฉลี่ยต่อวัน (ชิ้น) ต่อบาร์โค้ด ย้อนหลัง window_days วัน — ใช้คำนวณ 'ของพอขายอีกกี่วัน'."""
+    q = """
+    SELECT od.Barcode, SUM(od.Qty - COALESCE(od.QtyReturn,0)) * 1.0 / ?
+    FROM OrdersDetail od
+    JOIN Orders o ON o.Id = od.OrderId AND o.IsDelete = 0
+    WHERE od.IsDelete = 0
+      AND date(o.Complete) > date(?, ?)
+      AND date(o.Complete) <= ?
+    GROUP BY od.Barcode
+    """
+    return {bc: avg for bc, avg in
+            con.execute(q, (window_days, day, f"-{window_days} days", day))}
+
+
 # เกณฑ์ "เคยขายดี-ของหมด" (ตาม Owner: กันสินค้าขายดีหายเพราะ ML3 ไม่มีของ)
 RECOVERY_WINDOW_DAYS = 30   # ดูยอดขายย้อนหลังกี่วัน
 RECOVERY_MIN_QTY = 10       # ต้องเคยขายอย่างน้อยกี่ชิ้นในช่วงนั้น
@@ -406,18 +439,39 @@ def build_recovery_list(con, day, bysingle, window=RECOVERY_WINDOW_DAYS, thresho
     return out
 
 
-def build_requisition(today_sales, pack_map, bysingle, abc):
+def build_requisition(today_sales, pack_map, bysingle, abc, avg_daily, avg_recent):
     """สร้างรายการเบิกจากยอดขายวันนี้.
 
     pack_map = ไฟล์ CSV แก้มือ (ใช้ก่อนเสมอ), bysingle = Master_Multiplier.xlsx
-    คืน (รายการเบิก, รายการที่ข้อมูลมาสเตอร์ขัดกัน)."""
-    out, issues = [], []
+    avg_daily/avg_recent = ยอดขายเฉลี่ย/วัน 30 วัน / 7 วันล่าสุด (กฎ "ของยังพอ ไม่ต้องเบิก")
+    คืน (รายการเบิก, รายการที่ข้อมูลมาสเตอร์ขัดกัน, รายการที่ข้ามเพราะของยังพอ)."""
+    out, issues, skipped = [], [], []
     for s in today_sales:
         if s["category"] in EXCLUDE_CATEGORIES:   # ตัดบริการ (โรงแรมแมว ฯลฯ) ออกจากใบเบิก
             continue
         bc = s["barcode"]
         sold = s["qty_sold"] or 0
         need_units = max(1, math.ceil(sold))  # ขายกี่ชิ้น เบิกเท่านั้น ขั้นต่ำ 1
+
+        # ด่านแรก — กฎ "ของยังพอ ไม่ต้องเบิก" [Owner เคาะ 3 วัน + มติทีมคลัง 2026-08-10]:
+        # คงเหลือ ML2 พอขายเกินเกณฑ์ (A/B=3 วัน, C=2 วัน) -> ไม่เบิก ปล่อยขายกองเดิมออกก่อน
+        # ฤดูกาล: ใช้ค่าเฉลี่ยที่แรงกว่าระหว่าง 30 วัน กับ 7 วันล่าสุด (ขาขึ้นเบิกไวขึ้นเอง)
+        # ตาข่ายนิรภัย: ถ้าของเหลือไม่พอรองรับยอดขายซ้ำแบบวันล่าสุด (ขายพุ่งวันเดียว
+        # แต่ค่าเฉลี่ยยังต่ำ) -> ต้องเบิกเสมอ ห้ามข้าม
+        stock_now = s["stock_now"] if s["stock_now"] is not None else 0
+        avg = max(avg_daily.get(bc, 0) or 0, avg_recent.get(bc, 0) or 0)
+        max_cover = REQ_COVER_DAYS_BY_ABC.get(abc.get(bc, "-"), REQ_MAX_COVER_DAYS)
+        if (stock_now > sold and
+                stock_now > 0 and avg > 0 and (stock_now / avg) > max_cover):
+            skipped.append({
+                "single_barcode": bc, "name": s["name"], "category": s["category"],
+                "abc": abc.get(bc, "-"),
+                "qty_sold_today": f"{sold:g}", "stock_now": f"{stock_now:g}",
+                "avg_daily": f"{avg:.2f}",
+                "cover_days": f"{stock_now / avg:.0f}",
+                "max_cover_days": max_cover,
+            })
+            continue
 
         # 1) ไฟล์ CSV แก้มือมาก่อน  2) แล้วค่อยดู Master_Multiplier.xlsx
         override = pack_map.get(bc)
@@ -456,6 +510,7 @@ def build_requisition(today_sales, pack_map, bysingle, abc):
                 req_qty = pack_qty
                 req_unit = unit_name
                 req_barcode = pack["pack_barcode"] or bc
+                total_pieces = pack_qty * 12
             elif pack["mult"] == 20:
                 # กฎยกแพ็ค x20 [Piyawan ยืนยัน 2026-08-04]: ขายดี(>=8) ปัดเป็นแพ็คเต็ม /
                 # ช้าแต่ของใกล้หมด(<=3) เบิก 1 แพ็คกันขาด / ช้า+ของพอ เบิกเป็นชิ้นเท่าที่ขายจริง (ไม่ยกแพ็ค)
@@ -465,17 +520,20 @@ def build_requisition(today_sales, pack_map, bysingle, abc):
                     req_qty = pack_qty
                     req_unit = unit_name
                     req_barcode = pack["pack_barcode"] or bc
+                    total_pieces = pack_qty * 20
                     note = f"ขายดี {sold:g} -> {pack_qty} {unit_name}"
                 elif stock_val <= X20_LOW_STOCK:
                     req_qty = 1
                     req_unit = unit_name
                     req_barcode = pack["pack_barcode"] or bc
+                    total_pieces = 20
                     note = f"ช้า แต่สต๊อกเหลือ {stock_val:g}(<={X20_LOW_STOCK}) -> 1 {unit_name}"
                 else:
                     # ขายช้า + ของยังพอ -> เบิกเป็นชิ้น ไม่ปัดเป็นแพ็ค (แพ็คใหญ่ กันของกองเกิน)
                     req_qty = need_units
                     req_unit = s["unit"]
                     req_barcode = bc
+                    total_pieces = need_units
                     note = f"ช้า {sold:g} ชิ้น -> เบิกเป็นชิ้น (ไม่ยกแพ็ค x20 กันของกองเกิน)"
             else:
                 pack_qty = math.ceil(need_units / pack["mult"])
@@ -483,10 +541,12 @@ def build_requisition(today_sales, pack_map, bysingle, abc):
                 req_qty = pack_qty
                 req_unit = unit_name
                 req_barcode = pack["pack_barcode"] or bc
+                total_pieces = pack_qty * pack["mult"]
         else:
             req_qty = need_units
             req_unit = s["unit"]
             req_barcode = bc
+            total_pieces = need_units
             note = ""
 
         stock = s["stock_now"]
@@ -511,6 +571,7 @@ def build_requisition(today_sales, pack_map, bysingle, abc):
             "stock_now": "" if stock is None else f"{stock:g}",
             "req_qty": req_qty,
             "req_unit": req_unit,
+            "total_pieces": total_pieces,   # รวมเป็นชิ้นจริง — กันพนักงานสับสนตัวคูณ
             "base_unit": s["unit"],
             "pack_mult": pack["mult"] if pack else "",
             "match_status": status,
@@ -518,15 +579,14 @@ def build_requisition(today_sales, pack_map, bysingle, abc):
             "convert_note": note,
         })
 
-    # เรียง: คลาส ABC (A>B>C) -> หมวด (เรียงชื่อ) -> ด่วนก่อน -> ยอดขายมากก่อน
-    #   => สินค้าคลาส A อยู่ด้วยกัน และในคลาสเดียวกันหมวดเดียวกันอยู่ติดกัน
+    # เรียง: หมวด (เรียงชื่อ) -> ด่วนก่อน -> ยอดขายมากก่อน
+    # [มติทีมคลัง 2026-08-10: ตัดการจัดกลุ่มคลาส ABC ออกจากใบ — เดินหยิบตามหมวดง่ายกว่า
+    #  ABC ยังคำนวณอยู่เบื้องหลัง ใช้ในกฎ "ของยังพอ ไม่ต้องเบิก" + เก็บใน CSV]
     flag_rank = {"ด่วน-ของหมด": 0, "ควรเติม": 1, "": 2}
-    abc_rank = {"A": 0, "B": 1, "C": 2, "-": 3}
-    out.sort(key=lambda r: (abc_rank.get(r["abc"], 3),
-                            r["category"],
+    out.sort(key=lambda r: (r["category"],
                             flag_rank.get(r["priority_flag"], 2),
                             -float(r["qty_sold_today"])))
-    return out, issues
+    return out, issues, skipped
 
 
 def write_csv(path, rows, headers):
@@ -546,28 +606,22 @@ def build_requisition_html(path, rows, doc_no, day, printed_at):
     except (ValueError, TypeError):
         day_th = day
 
-    abc_label = {"A": "คลาส A — ขายดีทำเงินหลัก", "B": "คลาส B — ขายปานกลาง",
-                 "C": "คลาส C — ขายน้อย", "-": "ไม่มีคะแนน ABC"}
+    # [มติทีมคลัง 2026-08-10] ไม่คั่นหัวข้อคลาส ABC แล้ว — คั่นเฉพาะหมวดสินค้า
     body_rows = []
     i = 0
-    cur_abc = cur_cat = None
+    cur_cat = None
     for r in rows:
-        # หัวข้อคั่นเมื่อขึ้นคลาส ABC ใหม่
-        if r["abc"] != cur_abc:
-            cur_abc = r["abc"]
-            cur_cat = None
-            body_rows.append(
-                f"<tr class='hclass'><td colspan='9'>{html.escape(abc_label.get(cur_abc, cur_abc))}</td></tr>"
-            )
         # หัวข้อคั่นเมื่อขึ้นหมวดใหม่
         if r["category"] != cur_cat:
             cur_cat = r["category"]
             body_rows.append(
-                f"<tr class='hcat'><td colspan='9'>{html.escape(cur_cat or '-')}</td></tr>"
+                f"<tr class='hcat'><td colspan='10'>{html.escape(cur_cat or '-')}</td></tr>"
             )
         i += 1
         pack_txt = f"x{r['pack_mult']}" if r.get("pack_mult") else "-"
         ml3_txt = html.escape(str(r.get("ml3_stock", "-")))
+        # "รวมเป็นชิ้น" = จำนวนชิ้นจริงที่ต้องหยิบ — พนักงานไม่ต้องคูณตัวคูณเอง
+        pieces = r.get("total_pieces", r["req_qty"])
         body_rows.append(
             "<tr>"
             f"<td class='c'>{i}</td>"
@@ -578,6 +632,7 @@ def build_requisition_html(path, rows, doc_no, day, printed_at):
             f"<td class='c b'>{html.escape(str(r['req_qty']))}</td>"
             f"<td class='c'>{html.escape(r['req_unit'])}</td>"
             f"<td class='c'>{pack_txt}</td>"
+            f"<td class='c b pieces'>{html.escape(str(pieces))}</td>"
             f"<td class='c'>{ml3_txt}</td>"
             "</tr>"
         )
@@ -600,7 +655,8 @@ def build_requisition_html(path, rows, doc_no, day, printed_at):
   thead th {{ background:#f0f0f0; font-size:12px; }}
   td.c {{ text-align:center; }}
   td.b {{ font-weight:bold; }}
-  tr.hclass td {{ background:#d9e6f2; font-weight:bold; font-size:14px; }}
+  /* คอลัมน์ "รวมเป็นชิ้น" เน้นพื้นเหลือง — เลขที่พนักงานต้องหยิบจริง ไม่ต้องคูณเอง */
+  td.pieces {{ background:#fdf0c2; -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
   tr.hcat td {{ background:#eef3f7; font-weight:bold; padding-left:16px; }}
   .total {{ margin-top:8px; font-weight:bold; }}
   .sign {{ display:flex; justify-content:space-around; margin-top:40px; text-align:center; }}
@@ -619,7 +675,7 @@ def build_requisition_html(path, rows, doc_no, day, printed_at):
     .sheet {{ width:auto; margin:0; padding:0; box-shadow:none; }}
     thead {{ display:table-header-group; }}
     tr {{ page-break-inside:avoid; break-inside:avoid; }}
-    tr.hclass, tr.hcat {{ page-break-after:avoid; break-after:avoid; }}
+    tr.hcat {{ page-break-after:avoid; break-after:avoid; }}
     .sign {{ page-break-inside:avoid; break-inside:avoid; }}
   }}
 </style></head>
@@ -633,7 +689,7 @@ def build_requisition_html(path, rows, doc_no, day, printed_at):
   <table>
     <thead><tr>
       <th>ลำดับ</th><th>บาร์โค้ด</th><th>สินค้า</th>
-      <th>ขายวันนี้</th><th>คงเหลือ</th><th>จำนวนเบิก</th><th>หน่วย</th><th>ต่อแพ็ค</th><th>ML3 มี</th>
+      <th>ขายวันนี้</th><th>คงเหลือ</th><th>จำนวนเบิก</th><th>หน่วย</th><th>ต่อแพ็ค</th><th>รวมเป็นชิ้น</th><th>ML3 มี</th>
     </tr></thead>
     <tbody>
 {rows_html}
@@ -682,7 +738,10 @@ def main():
 
     today_sales = query_today_sales(con, day)
     abc = compute_abc(con, day, ABC_WINDOW_DAYS)
-    requisition, issues = build_requisition(today_sales, pack_map, bysingle, abc)
+    avg_daily = compute_avg_daily(con, day)                       # เฉลี่ย 30 วัน
+    avg_recent = compute_avg_daily(con, day, COVER_RECENT_DAYS)   # เฉลี่ย 7 วันล่าสุด (จับฤดูกาล)
+    requisition, issues, skipped = build_requisition(
+        today_sales, pack_map, bysingle, abc, avg_daily, avg_recent)
 
     # เช็คสต๊อก ML3 (คลังต้นทาง): ปรับจำนวนเท่าที่มี + แยกตัวที่ต้องสั่งซื้อเข้า
     ml3_path = find_latest_ml3(ML3_DIR)
@@ -710,7 +769,10 @@ def main():
         print(f"     ... และอีก {len(today_sales) - 15} รายการ (ดูเต็มใน output/today_sales.csv)")
 
     # ---- รายงาน 2: ต้องเบิก ----
-    print(f"\n[2] ใบเบิกสินค้า {doc_no} | {len(requisition)} รายการ (ขายกี่ชิ้น เบิกเท่านั้น ขั้นต่ำ 1)")
+    print(f"\n[2] ใบเบิกสินค้า {doc_no} | {len(requisition)} รายการ "
+          f"(ขายกี่ชิ้น เบิกเท่านั้น ขั้นต่ำ 1 | ของพอขายเกิน {REQ_MAX_COVER_DAYS} วันไม่เบิก)")
+    print(f"    ข้ามเพราะของยังพอ (เกิน {REQ_MAX_COVER_DAYS} วันขาย): {len(skipped)} รายการ "
+          f"-> output/skipped_enough_stock.csv")
     from collections import Counter
     print("    ผลการจับคู่มาสเตอร์:")
     for st, c in Counter(r["match_status"] for r in requisition).most_common():
@@ -731,8 +793,12 @@ def main():
     # CSV ข้อมูล: เก็บ priority_flag / convert_note ไว้ (ไม่โชว์ในเอกสาร แต่เก็บไว้ใช้ต่อ)
     write_csv(os.path.join(OUTPUT_DIR, "requisition.csv"), requisition,
               ["doc_no", "req_barcode", "single_barcode", "name", "pos_name", "category", "abc",
-               "qty_sold_today", "stock_now", "req_qty", "req_unit", "pack_mult", "ml3_stock",
-               "match_status", "priority_flag", "convert_note"])
+               "qty_sold_today", "stock_now", "req_qty", "req_unit", "total_pieces", "pack_mult",
+               "ml3_stock", "match_status", "priority_flag", "convert_note"])
+    # รายการที่ข้ามเพราะของยังพอ (กฎ 3 วัน, C=2 วัน) -> ไว้ตรวจย้อน/ปรับเกณฑ์
+    write_csv(os.path.join(OUTPUT_DIR, "skipped_enough_stock.csv"), skipped,
+              ["single_barcode", "name", "category", "abc", "qty_sold_today",
+               "stock_now", "avg_daily", "cover_days", "max_cover_days"])
     # ต้องสั่งซื้อเข้า ML3 (ML2 ขายออก แต่ ML3 ก็หมด) -> ให้ฝ่ายจัดซื้อตามซัพพลายเออร์
     write_csv(os.path.join(OUTPUT_DIR, "purchase_ml3.csv"), purchase,
               ["single_barcode", "name", "category", "abc", "qty_sold_today",
@@ -772,6 +838,7 @@ def main():
     print("  output/requisition.csv            (ข้อมูลดิบ เก็บครบทุกคอลัมน์)")
     print("  output/today_sales.csv            (ขายวันนี้ทั้งหมด)")
     print(f"  output/purchase_ml3.csv           ({len(purchase)} รายการต้องสั่งซื้อเข้า ML3)")
+    print(f"  output/skipped_enough_stock.csv   ({len(skipped)} รายการข้าม-ของยังพอเกิน {REQ_MAX_COVER_DAYS} วัน)")
     print(f"  output/master_issues.csv          ({len(issues)} รายการที่มาสเตอร์ขัดกัน ต้องไปแก้)")
     print(f"  output/recovery_watchlist.csv     ({len(recovery)} รายการเคยขายดี-ของหมด | ดูสัปดาห์ละครั้ง)")
     print("=" * 64)
