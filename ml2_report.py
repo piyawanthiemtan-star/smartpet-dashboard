@@ -816,11 +816,34 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
         f.write(doc)
 
 
+def _purchase_daysel(day_options, day):
+    """ดรอปดาวน์ชุดใบแจ้งจัดซื้อ: ตัวแรก = ใบค้างสะสม (day=None) ที่เหลือ = รายวันทุกวัน."""
+    if not day_options:
+        return ""
+    opts = [('<option value="/requisition-purchase"'
+             + (" selected" if day is None else "")
+             + f'>📌 ค้างสะสม {len(day_options)} วัน</option>')]
+    for d in day_options:
+        sel = " selected" if d == day else ""
+        opts.append(f'<option value="/requisition-purchase-{d}"{sel}>{_day_th(d)}</option>')
+    return ('<div class="daysel">📅 เลือกดู: '
+            f'<select onchange="location.href=this.value">{"".join(opts)}</select></div>')
+
+
+def _ml3_alt_stock(bc, ml3_stock, siblings):
+    """สต๊อก ML3 ใต้บาร์โค้ดพี่น้อง (มาสเตอร์ก่อน แล้วค่อยธรรมเนียม -1) — 0 = ไม่มีจริง."""
+    for cand in (siblings.get(str(bc), []) if siblings else []):
+        q = ml3_stock.get(cand["bc"]) or 0
+        if q > 0:
+            return q
+    b = str(bc)
+    return (ml3_stock.get(b[:-2]) if b.endswith("-1") else ml3_stock.get(b + "-1")) or 0
+
+
 def build_purchase_html(path, purchase, day, req_doc_no, printed_at, day_options=None):
-    """ใบแจ้งฝ่ายจัดซื้อ — เอกสารแยกจากใบเบิก [Owner สั่ง 2026-08-10]:
-    รายการที่ ML2 ขายออกแต่ ML3 หมด ฝ่ายคลังพิมพ์/เซ็นส่งต่อฝ่ายจัดซื้อ."""
+    """ใบแจ้งฝ่ายจัดซื้อรายวัน (บันทึกประวัติของแต่ละวัน) [Owner สั่งแยกชุด 2026-08-10]."""
     day_th = _day_th(day)
-    daysel = _daysel_html(day_options, day, "/requisition-purchase")
+    daysel = _purchase_daysel(day_options, day)
     back = ("/requisition" if (day_options and day == day_options[0])
             else f"/requisition-{day}")
     if purchase:
@@ -890,6 +913,119 @@ def build_purchase_html(path, purchase, day, req_doc_no, printed_at, day_options
     <div style="text-align:right">อ้างอิงใบเบิก: <b>{html.escape(req_doc_no)}</b><br>พิมพ์เมื่อ: {printed_at}</div>
   </div>
   {body}
+  <div class="sign">
+    <div><div class="line">ฝ่ายคลัง (ผู้แจ้ง)</div></div>
+    <div><div class="line">ฝ่ายจัดซื้อ (ผู้รับเรื่อง)</div></div>
+  </div>
+  </div>
+  <script>/* เปิดเป็นไฟล์ local ลิงก์เว็บใช้ไม่ได้ -> ซ่อนดรอปดาวน์+ปิดลิงก์ */
+  if(location.protocol.indexOf("http")!==0){{var d=document.querySelector(".daysel");if(d)d.style.display="none";
+  document.querySelectorAll("a.weblink").forEach(function(a){{a.removeAttribute("href");}});}}</script>
+</body></html>"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(doc)
+
+
+def build_purchase_cum_html(path, items, recovery_out, printed_at, day_options):
+    """ใบแจ้งจัดซื้อ 'ยอดค้างสั่งสะสม' [Owner เคาะ 2026-08-10]:
+    รวมทุกตัวที่ขายออกใน N วันหลังสุดและ ML3 ยังหมดอยู่ (เช็คบาร์โค้ดพี่น้องแล้ว)
+    — รายการค้างอยู่ในใบนี้ทุกวันจนกว่าฝ่ายจัดซื้อเติมของเข้า ML3 แล้วจะหายเอง.
+    recovery_out = ของหมดทั้ง 2 สาขาที่เคยขายดี (ด่วนสุด — ขายไม่ได้แล้ว)."""
+    ndays = len(day_options or [])
+    daysel = _purchase_daysel(day_options, None)
+    if items:
+        prow = []
+        for i, c in enumerate(items, 1):
+            prow.append(
+                "<tr>"
+                f"<td class='c'>{i}</td>"
+                f"<td>{html.escape(str(c['barcode']))}</td>"
+                f"<td>{html.escape(c['name'])}</td>"
+                f"<td class='c b'>{c['sold7']:g}</td>"
+                f"<td class='c'>{_day_th(c['last_day'])}</td>"
+                f"<td class='c'>{html.escape(str(c['stock_now']))}</td>"
+                "<td></td>"
+                "</tr>")
+        body = (f'<table><thead><tr><th>ลำดับ</th><th>บาร์โค้ด</th><th>สินค้า</th>'
+                f'<th>ขายรวม {ndays} วัน</th><th>ขายล่าสุด</th><th>ML2 เหลือ</th><th>จำนวนสั่งซื้อ</th></tr></thead><tbody>'
+                + "".join(prow) + '</tbody></table>'
+                + f'<p class="total">รวมทั้งสิ้น {len(items)} รายการ</p>')
+    else:
+        body = '<p style="margin:24px 0;text-align:center;color:#555">— ไม่มีรายการค้างสั่งซื้อ 🎉 —</p>'
+
+    rec_html = ""
+    if recovery_out:
+        rrow = []
+        for i, r in enumerate(recovery_out, 1):
+            rrow.append(
+                "<tr>"
+                f"<td class='c'>{i}</td>"
+                f"<td>{html.escape(str(r['barcode']))}</td>"
+                f"<td>{html.escape(r['name'])}</td>"
+                f"<td class='c'>{html.escape(str(r['sold_30d']))}</td>"
+                f"<td class='c'>{html.escape(str(r['last_sale']))}</td>"
+                "<td></td>"
+                "</tr>")
+        rec_html = (
+            f'<div class="mlout"><h2>🚨 หมดทั้ง 2 สาขา — เคยขายดีแต่ตอนนี้ขายไม่ได้แล้ว ({len(recovery_out)} รายการ ด่วนสุด)</h2>'
+            '<table><thead><tr><th>ลำดับ</th><th>บาร์โค้ด</th><th>สินค้า</th>'
+            '<th>ขาย 30 วัน</th><th>ขายล่าสุด</th><th>จำนวนสั่งซื้อ</th></tr></thead><tbody>'
+            + "".join(rrow) + '</tbody></table></div>')
+
+    doc = f"""<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<title>ใบแจ้งจัดซื้อ ค้างสะสม</title>
+<style>
+  @page {{ size: A4 portrait; margin: 12mm 10mm 14mm 10mm; }}
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: "Tahoma","TH Sarabun New",sans-serif; color:#111; margin:0; font-size:13px; }}
+  h1 {{ text-align:center; font-size:20px; margin:0 0 2px; }}
+  .sub {{ text-align:center; font-size:13px; color:#a32d2d; margin:0 0 4px; }}
+  .note {{ background:#eef7ee; border:1px solid #9dc79d; border-radius:4px;
+           padding:4px 8px; font-size:12px; margin:6px 0; }}
+  .meta {{ display:flex; justify-content:space-between; margin:8px 0 4px; }}
+  table {{ width:100%; border-collapse:collapse; margin-top:10px; }}
+  th, td {{ border:1px solid #888; padding:3px 6px; }}
+  thead th {{ background:#f0f0f0; font-size:12px; }}
+  td.c {{ text-align:center; }}
+  td.b {{ font-weight:bold; }}
+  .total {{ margin-top:8px; font-weight:bold; }}
+  .mlout h2 {{ font-size:15px; color:#a32d2d; margin:18px 0 4px; }}
+  .toolbar {{ display:flex; justify-content:flex-end; align-items:center; gap:10px; margin:0 0 6px; }}
+  .daysel {{ font-size:13px; }}
+  .daysel select {{ font-family:inherit; font-size:13px; padding:3px 6px; }}
+  .printbtn {{ font-family:inherit; font-size:13px; font-weight:bold; padding:5px 16px;
+               background:#1a3a5c; color:#fff; border:none; border-radius:6px; cursor:pointer; }}
+  a.backlink {{ font-size:13px; color:#1a3a5c; }}
+  .sign {{ display:flex; justify-content:space-around; margin-top:40px; text-align:center; }}
+  .sign div {{ width:38%; }}
+  .line {{ border-top:1px dotted #333; margin-top:36px; padding-top:4px; }}
+  @media screen {{
+    body {{ background:#e9e9e9; }}
+    .sheet {{ width:210mm; min-height:150mm; margin:10px auto; padding:12mm 10mm 14mm;
+             background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.25); }}
+  }}
+  @media print {{
+    .sheet {{ width:auto; margin:0; padding:0; box-shadow:none; }}
+    thead {{ display:table-header-group; }}
+    tr {{ page-break-inside:avoid; break-inside:avoid; }}
+    .sign {{ page-break-inside:avoid; break-inside:avoid; }}
+    .toolbar {{ display:none; }}
+  }}
+</style></head>
+<body>
+  <div class="sheet">
+  <div class="toolbar"><a class="backlink weblink" href="/requisition">← กลับใบเบิก</a>{daysel}<button class="printbtn" onclick="window.print()">🖨 พิมพ์</button></div>
+  <h1>ใบแจ้งจัดซื้อเข้า ML3 — ยอดค้างสั่งสะสม</h1>
+  <div class="sub">รวมสินค้าที่ ML2 ขายออกใน {ndays} วันหลังสุด และคลัง ML3 ยังไม่มีของ (เช็คทุกหน่วยบาร์โค้ดแล้ว)</div>
+  <div class="note">✅ รายการจะหายจากใบนี้อัตโนมัติเมื่อฝ่ายจัดซื้อสั่งของเข้า ML3 แล้ว — ถ้ายังเห็นอยู่ = ยังไม่ได้ของ</div>
+  <div class="meta">
+    <div>สาขา: <b>{html.escape(BRANCH_NAME)}</b></div>
+    <div style="text-align:right">พิมพ์เมื่อ: {printed_at}</div>
+  </div>
+  {body}
+  {rec_html}
   <div class="sign">
     <div><div class="line">ฝ่ายคลัง (ผู้แจ้ง)</div></div>
     <div><div class="line">ฝ่ายจัดซื้อ (ผู้รับเรื่อง)</div></div>
@@ -1032,7 +1168,8 @@ def main():
     build_requisition_html(doc_path, requisition, doc_no, day, printed_at,
                            day_options=hist_days, summary=main_summary)
 
-    # ---- ใบเบิกย้อนหลัง + ใบแจ้งจัดซื้อ (เอกสารแยกชุด) [Owner ขอ/สั่งแยก 2026-08-10] ----
+    # ---- ใบเบิกย้อนหลัง + ใบแจ้งจัดซื้อรายวัน + ยอดค้างสั่งสะสม [Owner เคาะ 2026-08-10] ----
+    cum = {}   # บาร์โค้ด -> ยอดค้างสั่งสะสมข้ามวัน (hist_days เรียงใหม่->เก่า: เจอครั้งแรก = วันล่าสุด)
     for d in hist_days:
         if d == day:
             rows_d, purch_d, sum_d, hist = requisition, purchase, main_summary, False
@@ -1047,10 +1184,31 @@ def main():
             os.path.join(OUTPUT_DIR, "req_days", f"requisition-{d}.html"),
             rows_d, doc_d, d, printed_at, day_options=hist_days, historical=hist,
             summary=sum_d)
-        pname = "requisition-purchase.html" if d == day else f"requisition-purchase-{d}.html"
-        build_purchase_html(os.path.join(OUTPUT_DIR, "req_days", pname),
-                            purch_d, d, doc_d, printed_at, day_options=hist_days)
-    print(f"  ใบเบิกย้อนหลัง {len(hist_days)} วัน + ใบแจ้งจัดซื้อ -> output/req_days/")
+        build_purchase_html(
+            os.path.join(OUTPUT_DIR, "req_days", f"requisition-purchase-{d}.html"),
+            purch_d, d, doc_d, printed_at, day_options=hist_days)
+        for r in purch_d:
+            c = cum.setdefault(r["single_barcode"], {
+                "barcode": r["single_barcode"], "name": r["name"],
+                "sold7": 0.0, "last_day": d, "stock_now": r["stock_now"]})
+            try:
+                c["sold7"] += float(r["qty_sold_today"] or 0)
+            except (TypeError, ValueError):
+                pass
+
+    # ใบค้างสั่งสะสม (/requisition-purchase): ML3 ยังหมดอยู่ = ค้างเตือนทุกวันจนกว่าจะได้ของ
+    cum_items = sorted(cum.values(), key=lambda c: -c["sold7"])
+    recovery_out = []
+    if ml3_stock:
+        recovery_out = [r for r in recovery
+                        if (ml3_stock.get(str(r["barcode"])) or 0) <= 0
+                        and _ml3_alt_stock(r["barcode"], ml3_stock, siblings) <= 0]
+    build_purchase_cum_html(
+        os.path.join(OUTPUT_DIR, "req_days", "requisition-purchase.html"),
+        cum_items, recovery_out, printed_at, hist_days)
+    print(f"  ใบเบิกย้อนหลัง {len(hist_days)} วัน + ใบแจ้งจัดซื้อรายวัน -> output/req_days/")
+    print(f"  ใบแจ้งจัดซื้อค้างสะสม: {len(cum_items)} รายการ "
+          f"(+หมดทั้ง 2 สาขา {len(recovery_out)}) -> requisition-purchase.html")
     # รายการที่ข้อมูลมาสเตอร์ขัดกัน -> ไว้ให้ไปแก้ต้นทาง
     write_csv(os.path.join(OUTPUT_DIR, "master_issues.csv"), issues,
               ["single_barcode", "pos_name", "master_rows"])
