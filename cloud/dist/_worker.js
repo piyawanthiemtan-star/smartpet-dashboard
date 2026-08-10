@@ -1087,7 +1087,9 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
 
     // ใบเบิกสินค้า ML2 รายวัน — สิทธิ์เดียวกับการ์ดคลังและจัดส่ง (สร้างบนคลาวด์ทุก build)
     // /requisition = วันล่าสุด · /requisition-YYYY-MM-DD = ใบย้อนหลัง (ดรอปดาวน์เลือกวันที่ในหน้า)
-    if (execP === "requisition" || /^requisition-\d{4}-\d{2}-\d{2}$/.test(execP)) {
+    // /requisition-purchase[-YYYY-MM-DD] = ใบแจ้งจัดซื้อ (ML3 หมด) — เอกสารแยกชุด
+    if (execP === "requisition" || execP === "requisition-purchase" ||
+        /^requisition(?:-purchase)?-\d{4}-\d{2}-\d{2}$/.test(execP)) {
       const sess = await readSession(request, env);
       if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/" + execP) } });
       if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);

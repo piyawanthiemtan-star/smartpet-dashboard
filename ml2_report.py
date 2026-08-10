@@ -611,9 +611,22 @@ def _day_th(day):
         return str(day)
 
 
+def _daysel_html(day_options, day, base):
+    """ดรอปดาวน์เลือกวันที่ — base คือ path หลัก (วันล่าสุด) วันอื่นต่อท้าย -YYYY-MM-DD."""
+    if not day_options:
+        return ""
+    opts = []
+    for i, d in enumerate(day_options):
+        href = base if i == 0 else f"{base}-{d}"
+        sel = " selected" if d == day else ""
+        opts.append(f'<option value="{href}"{sel}>{_day_th(d)}</option>')
+    return ('<div class="daysel">📅 เลือกวันที่: '
+            f'<select onchange="location.href=this.value">{"".join(opts)}</select></div>')
+
+
 def build_requisition_html(path, rows, doc_no, day, printed_at,
                            day_options=None, historical=False,
-                           purchase=None, summary=None):
+                           summary=None):
     """สร้างเอกสารใบเบิกสินค้าแบบพิมพ์ได้ (HTML -> Ctrl+P บันทึกเป็น PDF ได้).
     ซ่อนคอลัมน์ priority_flag / convert_note ตามที่ตกลง (ยังเก็บใน CSV).
 
@@ -623,19 +636,12 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
     day_th = _day_th(day)
 
     # ดรอปดาวน์เลือกวันที่ — โชว์เฉพาะตอนเปิดผ่านเว็บ (ซ่อนตอนพิมพ์ + ตอนเปิดเป็นไฟล์ local)
-    daysel = ""
-    if day_options:
-        opts = []
-        for i, d in enumerate(day_options):
-            href = "/requisition" if i == 0 else f"/requisition-{d}"
-            sel = " selected" if d == day else ""
-            opts.append(f'<option value="{href}"{sel}>{_day_th(d)}</option>')
-        daysel = ('<div class="daysel">📅 เลือกวันที่: '
-                  f'<select onchange="location.href=this.value">{"".join(opts)}</select></div>')
+    daysel = _daysel_html(day_options, day, "/requisition")
     hist_note = ('<div class="histnote">⚠ ใบย้อนหลัง — คำนวณใหม่จากสต๊อกปัจจุบัน '
                  'ตัวเลขอาจต่างจากใบที่พิมพ์เช้าวันนั้นเล็กน้อย</div>') if historical else ""
 
     # กล่องสรุปหัวใบ [Owner ขอ 2026-08-10]: ขายทั้งหมดกี่รายการ แยกไปไหนบ้าง เลขบวกกันลงตัว
+    # "ML3 หมด" เป็นลิงก์เปิดใบแจ้งจัดซื้อ (เอกสารแยกอีกชุด — Owner สั่งไม่ให้รวมในใบเบิก)
     sum_html = ""
     if summary:
         other = summary["sold"] - len(rows) - summary["skipped"] - summary["ml3out"]
@@ -643,29 +649,13 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
                  f'เข้าใบเบิก <b>{len(rows)}</b>',
                  f'ของยังพอ-ยังไม่เบิก <b>{summary["skipped"]}</b>']
         if summary["ml3out"]:
-            parts.append(f'<span class="alert">ML3 หมด รอสั่งซื้อ <b>{summary["ml3out"]}</b></span>')
+            plink = ("/requisition-purchase" if (day_options and day == day_options[0])
+                     else f"/requisition-purchase-{day}")
+            parts.append(f'<a class="alert weblink" href="{plink}">ML3 หมด รอสั่งซื้อ '
+                         f'<b>{summary["ml3out"]}</b> ➜ เปิดใบแจ้งจัดซื้อ</a>')
         if other > 0:
             parts.append(f'อื่นๆ (บริการ/กฎแพ็ค) <b>{other}</b>')
         sum_html = '<div class="sumbox">' + " · ".join(parts) + '</div>'
-
-    # ตารางท้ายใบ: ML2 ขายออกแต่ ML3 หมด — ฝ่ายคลังใช้แจ้งฝ่ายจัดซื้อ [Owner ขอ 2026-08-10]
-    purchase_html = ""
-    if purchase:
-        prow = []
-        for i, r in enumerate(purchase, 1):
-            prow.append(
-                "<tr>"
-                f"<td class='c'>{i}</td>"
-                f"<td>{html.escape(str(r['single_barcode']))}</td>"
-                f"<td>{html.escape(r['name'])}</td>"
-                f"<td class='c'>{html.escape(str(r['qty_sold_today']))}</td>"
-                f"<td class='c'>{html.escape(str(r['stock_now']))}</td>"
-                "</tr>")
-        purchase_html = (
-            f'<div class="mlout"><h2>⚠ ML2 ขายออกแต่ ML3 หมด — ฝ่ายคลังส่งรายการนี้ให้ฝ่ายจัดซื้อ ({len(purchase)} รายการ)</h2>'
-            '<table><thead><tr><th>ลำดับ</th><th>บาร์โค้ด</th><th>สินค้า</th>'
-            '<th>ขายวันนี้</th><th>ML2 เหลือ</th></tr></thead><tbody>'
-            + "".join(prow) + '</tbody></table></div>')
 
     # [มติทีมคลัง 2026-08-10] ไม่คั่นหัวข้อคลาส ABC แล้ว — คั่นเฉพาะหมวดสินค้า
     body_rows = []
@@ -732,8 +722,7 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
                padding:4px 8px; font-size:12px; margin:4px 0; }}
   .sumbox {{ background:#eef3f7; border-radius:6px; padding:6px 10px; font-size:13px; margin:6px 0; }}
   .sumbox .alert {{ color:#a32d2d; }}
-  .mlout h2 {{ font-size:15px; color:#a32d2d; margin:16px 0 4px; }}
-  .mlout {{ page-break-inside:avoid; break-inside:avoid; }}
+  .sumbox a.alert {{ text-decoration:underline; }}
 
   /* มุมมองบนจอ: ทำให้ดูเหมือนแผ่น A4 */
   @media screen {{
@@ -772,15 +761,103 @@ def build_requisition_html(path, rows, doc_no, day, printed_at,
     </tbody>
   </table>
   <p class="total">รวมทั้งสิ้น {len(rows)} รายการ</p>
-  {purchase_html}
   <div class="sign">
     <div><div class="line">ผู้ขอเบิก</div></div>
     <div><div class="line">ผู้จ่ายสินค้า</div></div>
     <div><div class="line">ผู้รับสินค้า</div></div>
   </div>
   </div>
-  <script>/* เปิดเป็นไฟล์ local (file://) ลิงก์ /requisition ใช้ไม่ได้ -> ซ่อนดรอปดาวน์ */
-  if(location.protocol.indexOf("http")!==0){{var d=document.querySelector(".daysel");if(d)d.style.display="none";}}</script>
+  <script>/* เปิดเป็นไฟล์ local (file://) ลิงก์ /requisition ใช้ไม่ได้ -> ซ่อนดรอปดาวน์+ปิดลิงก์เว็บ */
+  if(location.protocol.indexOf("http")!==0){{var d=document.querySelector(".daysel");if(d)d.style.display="none";
+  document.querySelectorAll("a.weblink").forEach(function(a){{a.removeAttribute("href");}});}}</script>
+</body></html>"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(doc)
+
+
+def build_purchase_html(path, purchase, day, req_doc_no, printed_at, day_options=None):
+    """ใบแจ้งฝ่ายจัดซื้อ — เอกสารแยกจากใบเบิก [Owner สั่ง 2026-08-10]:
+    รายการที่ ML2 ขายออกแต่ ML3 หมด ฝ่ายคลังพิมพ์/เซ็นส่งต่อฝ่ายจัดซื้อ."""
+    day_th = _day_th(day)
+    daysel = _daysel_html(day_options, day, "/requisition-purchase")
+    back = ("/requisition" if (day_options and day == day_options[0])
+            else f"/requisition-{day}")
+    if purchase:
+        prow = []
+        for i, r in enumerate(purchase, 1):
+            prow.append(
+                "<tr>"
+                f"<td class='c'>{i}</td>"
+                f"<td>{html.escape(str(r['single_barcode']))}</td>"
+                f"<td>{html.escape(r['name'])}</td>"
+                f"<td class='c'>{html.escape(str(r['qty_sold_today']))}</td>"
+                f"<td class='c'>{html.escape(str(r['stock_now']))}</td>"
+                "<td></td>"
+                "</tr>")
+        body = ('<table><thead><tr><th>ลำดับ</th><th>บาร์โค้ด</th><th>สินค้า</th>'
+                '<th>ขายวันนี้ (ML2)</th><th>ML2 เหลือ</th><th>จำนวนสั่งซื้อ</th></tr></thead><tbody>'
+                + "".join(prow) + '</tbody></table>'
+                + f'<p class="total">รวมทั้งสิ้น {len(purchase)} รายการ</p>')
+    else:
+        body = '<p style="margin:24px 0;text-align:center;color:#555">— วันนี้ไม่มีรายการที่ ML3 หมด —</p>'
+
+    doc = f"""<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<title>ใบแจ้งสั่งซื้อ {day_th}</title>
+<style>
+  @page {{ size: A4 portrait; margin: 12mm 10mm 14mm 10mm; }}
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: "Tahoma","TH Sarabun New",sans-serif; color:#111; margin:0; font-size:13px; }}
+  h1 {{ text-align:center; font-size:20px; margin:0 0 2px; }}
+  .sub {{ text-align:center; font-size:13px; color:#a32d2d; margin:0 0 8px; }}
+  .meta {{ display:flex; justify-content:space-between; margin:8px 0 4px; }}
+  .meta div {{ line-height:1.7; }}
+  table {{ width:100%; border-collapse:collapse; margin-top:10px; }}
+  th, td {{ border:1px solid #888; padding:3px 6px; }}
+  thead th {{ background:#f0f0f0; font-size:12px; }}
+  td.c {{ text-align:center; }}
+  .total {{ margin-top:8px; font-weight:bold; }}
+  .toolbar {{ display:flex; justify-content:flex-end; align-items:center; gap:10px; margin:0 0 6px; }}
+  .daysel {{ font-size:13px; }}
+  .daysel select {{ font-family:inherit; font-size:13px; padding:3px 6px; }}
+  .printbtn {{ font-family:inherit; font-size:13px; font-weight:bold; padding:5px 16px;
+               background:#1a3a5c; color:#fff; border:none; border-radius:6px; cursor:pointer; }}
+  a.backlink {{ font-size:13px; color:#1a3a5c; }}
+  .sign {{ display:flex; justify-content:space-around; margin-top:40px; text-align:center; }}
+  .sign div {{ width:38%; }}
+  .line {{ border-top:1px dotted #333; margin-top:36px; padding-top:4px; }}
+  @media screen {{
+    body {{ background:#e9e9e9; }}
+    .sheet {{ width:210mm; min-height:150mm; margin:10px auto; padding:12mm 10mm 14mm;
+             background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.25); }}
+  }}
+  @media print {{
+    .sheet {{ width:auto; margin:0; padding:0; box-shadow:none; }}
+    thead {{ display:table-header-group; }}
+    tr {{ page-break-inside:avoid; break-inside:avoid; }}
+    .sign {{ page-break-inside:avoid; break-inside:avoid; }}
+    .toolbar {{ display:none; }}
+  }}
+</style></head>
+<body>
+  <div class="sheet">
+  <div class="toolbar"><a class="backlink weblink" href="{back}">← กลับใบเบิก</a>{daysel}<button class="printbtn" onclick="window.print()">🖨 พิมพ์</button></div>
+  <h1>ใบแจ้งสั่งซื้อเข้า ML3</h1>
+  <div class="sub">สินค้า ML2 ขายออกแต่คลัง ML3 หมด — ฝ่ายคลังแจ้งฝ่ายจัดซื้อ</div>
+  <div class="meta">
+    <div>สาขา: <b>{html.escape(BRANCH_NAME)}</b><br>วันที่ขาย: <b>{day_th}</b></div>
+    <div style="text-align:right">อ้างอิงใบเบิก: <b>{html.escape(req_doc_no)}</b><br>พิมพ์เมื่อ: {printed_at}</div>
+  </div>
+  {body}
+  <div class="sign">
+    <div><div class="line">ฝ่ายคลัง (ผู้แจ้ง)</div></div>
+    <div><div class="line">ฝ่ายจัดซื้อ (ผู้รับเรื่อง)</div></div>
+  </div>
+  </div>
+  <script>/* เปิดเป็นไฟล์ local ลิงก์เว็บใช้ไม่ได้ -> ซ่อนดรอปดาวน์+ปิดลิงก์ */
+  if(location.protocol.indexOf("http")!==0){{var d=document.querySelector(".daysel");if(d)d.style.display="none";
+  document.querySelectorAll("a.weblink").forEach(function(a){{a.removeAttribute("href");}});}}</script>
 </body></html>"""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -912,9 +989,9 @@ def main():
     doc_path = os.path.join(OUTPUT_DIR, "requisition_document.html")
     main_summary = {"sold": len(today_sales), "skipped": len(skipped), "ml3out": len(purchase)}
     build_requisition_html(doc_path, requisition, doc_no, day, printed_at,
-                           day_options=hist_days, purchase=purchase, summary=main_summary)
+                           day_options=hist_days, summary=main_summary)
 
-    # ---- ใบเบิกย้อนหลัง (เลือกวันที่บนเว็บ) [Owner ขอ 2026-08-10] ----
+    # ---- ใบเบิกย้อนหลัง + ใบแจ้งจัดซื้อ (เอกสารแยกชุด) [Owner ขอ/สั่งแยก 2026-08-10] ----
     for d in hist_days:
         if d == day:
             rows_d, purch_d, sum_d, hist = requisition, purchase, main_summary, False
@@ -928,8 +1005,11 @@ def main():
         build_requisition_html(
             os.path.join(OUTPUT_DIR, "req_days", f"requisition-{d}.html"),
             rows_d, doc_d, d, printed_at, day_options=hist_days, historical=hist,
-            purchase=purch_d, summary=sum_d)
-    print(f"  ใบเบิกย้อนหลัง {len(hist_days)} วัน -> output/req_days/ (ดรอปดาวน์เลือกวันที่บนเว็บ)")
+            summary=sum_d)
+        pname = "requisition-purchase.html" if d == day else f"requisition-purchase-{d}.html"
+        build_purchase_html(os.path.join(OUTPUT_DIR, "req_days", pname),
+                            purch_d, d, doc_d, printed_at, day_options=hist_days)
+    print(f"  ใบเบิกย้อนหลัง {len(hist_days)} วัน + ใบแจ้งจัดซื้อ -> output/req_days/")
     # รายการที่ข้อมูลมาสเตอร์ขัดกัน -> ไว้ให้ไปแก้ต้นทาง
     write_csv(os.path.join(OUTPUT_DIR, "master_issues.csv"), issues,
               ["single_barcode", "pos_name", "master_rows"])
