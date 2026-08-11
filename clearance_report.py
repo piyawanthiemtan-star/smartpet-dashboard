@@ -119,10 +119,13 @@ def main():
     print(f"ขายออก {tot_qty:,.0f} ชิ้น · เงินคืน ฿{tot_amt:,.0f} ({pct:.0f}% ของเป้า ฿{target:,.0f})"
           f" · หมด {n_gone} · ขยับ {n_move} · ยังไม่ขยับ {n_dead}/{len(base)}")
 
+    n_by_branch = {}
+    for r in rows:
+        n_by_branch[r["branch"]] = n_by_branch.get(r["branch"], 0) + 1
     trs = []
     for i, r in enumerate(rows, 1):
         trs.append(
-            f'<tr class="{r["scls"]}" data-s="{r["scls"]}">'
+            f'<tr class="{r["scls"]}" data-s="{r["scls"]}" data-b="{r["branch"]}">'
             f'<td class="c">{i}</td><td class="c">{r["branch"]}</td>'
             f'<td class="bc">{html.escape(r["barcode"])}</td><td>{html.escape(r["name"])}</td>'
             f'<td class="c">{r["start"]:g}</td><td class="c b">{r["sold"]:g}</td>'
@@ -191,6 +194,10 @@ def main():
     <button data-f="dead">🔴 ยังไม่ขยับ ({n_dead})</button>
     <button data-f="move">🟢 ขยับ ({n_move})</button>
     <button data-f="gone">✅ หมดแล้ว ({n_gone})</button>
+    <span style="border-left:1px solid #c9d2dd;height:22px"></span>
+    <button class="on" data-br="all">ทุกสาขา</button>
+    <button data-br="ML3">🏭 ML3 โกดัง ({n_by_branch.get("ML3", 0)})</button>
+    <button data-br="ML2">🛒 ML2 ร้าน ({n_by_branch.get("ML2", 0)})</button>
     <input id="q" placeholder="ค้นหาชื่อ/บาร์โค้ด...">
   </div>
   <div class="tblwrap"><table class="main"><thead><tr>
@@ -200,18 +207,23 @@ def main():
 {chr(10).join(trs)}
   </tbody></table></div>
   <script>
-  var F="all";
+  var F="all",BR="all";
   function apply(){{
     var q=document.getElementById("q").value.trim().toLowerCase();
     document.querySelectorAll("#tb tr").forEach(function(tr){{
       var okF=(F==="all"||tr.dataset.s===F);
+      var okB=(BR==="all"||tr.dataset.b===BR);
       var okQ=(!q||tr.textContent.toLowerCase().indexOf(q)>=0);
-      tr.style.display=(okF&&okQ)?"":"none";
+      tr.style.display=(okF&&okB&&okQ)?"":"none";
     }});
   }}
-  document.querySelectorAll(".tools button").forEach(function(b){{
-    b.onclick=function(){{document.querySelectorAll(".tools button").forEach(function(x){{x.className="";}});
+  document.querySelectorAll(".tools button[data-f]").forEach(function(b){{
+    b.onclick=function(){{document.querySelectorAll(".tools button[data-f]").forEach(function(x){{x.className="";}});
       b.className="on";F=b.dataset.f;apply();}};
+  }});
+  document.querySelectorAll(".tools button[data-br]").forEach(function(b){{
+    b.onclick=function(){{document.querySelectorAll(".tools button[data-br]").forEach(function(x){{x.className="";}});
+      b.className="on";BR=b.dataset.br;apply();}};
   }});
   document.getElementById("q").oninput=apply;
   </script>
