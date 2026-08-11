@@ -150,10 +150,11 @@ def main():
     atpl = tpl.replace('+ (t.rev>0?" · กำไรขั้นต้น "+gp+"%":"")', "")
     atpl = atpl.replace("'<div class=\"meta\">'+sT.bills+\" บิล · กำไรขั้นต้น ฿\"+baht(sT.gp)+\"</div>\"",
                         "'<div class=\"meta\">'+sT.bills+\" บิล</div>\"")
-    # หัวเพจ: ฉบับบัญชีไม่ใช่คอนโซลผู้บริหาร + ไม่มีแท็บลิงก์ไป /executive (บัญชีเปิดไม่ได้อยู่แล้ว)
+    # หัวเพจ: ฉบับบัญชีไม่ใช่คอนโซลผู้บริหาร + ไม่มีแท็บลิงก์ไป /executive /clearance (บัญชีเปิดไม่ได้อยู่แล้ว)
     atpl = atpl.replace("<h1>คอนโซลผู้บริหาร</h1>", "<h1>ใบปิดยอดรายกะ — บัญชี</h1>")
-    atpl = atpl.replace('<div class="cnav"><a href="/executive">👔 ภาพรวมผู้บริหาร</a><span class="on">🧾 ปิดบิลสิ้นวัน</span></div>', "")
-    assert atpl != tpl and "กำไรขั้นต้น" not in atpl and "/executive" not in atpl, \
+    atpl = atpl.replace('<div class="cnav"><a href="/executive">👔 ภาพรวมผู้บริหาร</a><span class="on">🧾 ปิดบิลสิ้นวัน</span><a href="/clearance">📉 วัดผลระบาย C</a></div>', "")
+    assert atpl != tpl and "กำไรขั้นต้น" not in atpl and "/executive" not in atpl \
+        and "/clearance" not in atpl, \
         "template เปลี่ยนไป — patch ฉบับบัญชีไม่ติด ต้องแก้ daily_summary.py"
     ahtml = atpl.replace("__DATA__", json.dumps(acct, ensure_ascii=False))
     assert '"gp"' not in ahtml, "ยังมีข้อมูลกำไรหลุดในฉบับบัญชี"
