@@ -107,6 +107,23 @@ jobs:
             echo "ml2_report ล้มเหลว — คงใบเบิกเดิมจาก repo ไว้ (build เดินต่อ)"
           fi
 
+      - name: Generate clearance dashboard (วัดผลระบายกลุ่ม C — owner เท่านั้น)
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          # ใช้ backup ชุดเดียวกับใบเบิก (ml2work=ML2, ml3work=ML3) — ไม่มีก็ข้าม ไม่ให้ build ล้ม
+          if [ -d ml2work ] && [ -d ml3work ]; then
+            if CLR_ML2_DIR=ml2work CLR_ML3_DIR=ml3work CLR_OUT=clrout/clearance.html \
+               python clearance_report.py; then
+              cp clrout/clearance.html cloud/dist/clearance.html
+              echo "แดชบอร์ดวัดผลระบายสร้างสำเร็จ"
+            else
+              echo "clearance_report ล้มเหลว — คงหน้าเดิมไว้ (build เดินต่อ)"
+            fi
+          else
+            echo "backup ไม่ครบ — ข้ามแดชบอร์ดวัดผลระบาย"
+          fi
+
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

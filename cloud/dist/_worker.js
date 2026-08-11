@@ -1000,6 +1000,14 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return env.ASSETS.fetch(new Request(new URL("/executive", url), request));   // clean URL → executive.html
     }
 
+    // วัดผลระบายสต๊อกกลุ่ม C — เฉพาะ owner/admin (สร้างบนคลาวด์ทุก build จาก clearance_report.py)
+    if (execP === "clearance") {
+      const sess = await readSession(request, env);
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/clearance") } });
+      if (!sess.is_admin) return forbidden("clearance", sess);
+      return env.ASSETS.fetch(new Request(new URL("/clearance", url), request));   // clean URL → clearance.html
+    }
+
     // สรุปปิดบิลสิ้นวัน — เฉพาะ owner/admin · ไฟล์เดียวรวมทุกสาขา (เลือกวันที่ในหน้าเว็บ)
     if (execP === "daily") {
       const sess = await readSession(request, env);
