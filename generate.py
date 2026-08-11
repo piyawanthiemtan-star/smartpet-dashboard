@@ -154,8 +154,9 @@ def compute(db_path, children, msingles, childpacks, approved, branch="ML3"):
     cats  = {r[0]: r[1] for r in con.execute("SELECT Id,Name FROM ProductCategory")}
     prod = {r["Barcode"]: {"name": r["Name"], "cat": cats.get(r["Category"], "-"),
             "stock": r["Qty"] or 0, "cost": r["Cost"] or 0, "price": r["RetailPrice"] or 0,
-            "unit": units.get(r["Unit"], "?")}
-            for r in con.execute("SELECT Barcode,Name,Category,Qty,Cost,RetailPrice,Unit FROM Product WHERE IsDelete=0")}
+            "unit": units.get(r["Unit"], "?"), "created": r["created"] or ""}
+            for r in con.execute("SELECT Barcode,Name,Category,Qty,Cost,RetailPrice,Unit,"
+                                 "date([Create]) AS created FROM Product WHERE IsDelete=0")}
 
     def zero(): return {30:0.0, 90:0.0, 365:0.0, "m":0.0}
     sell = defaultdict(zero); trans = defaultdict(zero)
@@ -248,7 +249,10 @@ def compute(db_path, children, msingles, childpacks, approved, branch="ML3"):
         ca14=math.ceil(o14/cm) if (cm and o14>0) else None
         ca30=math.ceil(o30s/cm) if (cm and o30s>0) else None
         dleft=(stock/d) if d>0 else None
-        is_dead=(p["_o365"]==0 and stock>0 and p["cost"]*stock>=200)
+        # สินค้าเข้าใหม่ <=30 วัน: ให้เวลาทดลองขาย ห้ามนับเป็นของตาย/ลากเข้ารอบระบาย C
+        # [Owner เคาะ 2026-08-11 — ของใหม่ยังไม่มีประวัติขาย ถ้าโดนตีตายทันทีจะถูกลดราคาฟรี]
+        is_new=(p.get("created") or "") >= dcut(30)
+        is_dead=(p["_o365"]==0 and stock>0 and p["cost"]*stock>=200 and not is_new)
         is_over=(dleft is not None and dleft>120 and p["cost"]*stock>=500)
         nm=(bc not in msingles) and ("*" in str(p["name"])) and (bc not in approved) and (p["_o365"]>0)
         # --- margin / GP by ABC (family-aggregated, actual sale revenue) ---
@@ -256,7 +260,8 @@ def compute(db_path, children, msingles, childpacks, approved, branch="ML3"):
         gpRev[cls]+=sum(rev365.get(b,(0,0))[0] for b in _fam)
         gpCogs[cls]+=sum(rev365.get(b,(0,0))[1]*prod[b]["cost"] for b in _fam if b in prod)
         # --- clearance engine: overstock-C or dead-stock, promo floor = no-loss (hybrid) ---
-        if ((is_over and cls=="C") or is_dead) and p["cost"]>0 and p["price"]>0:
+        # (is_new ถูกกันออกแล้วผ่าน is_dead และเงื่อนไข not is_new ตรงนี้ — ของใหม่ไม่เข้ารอบระบาย)
+        if ((is_over and cls=="C") or is_dead) and not is_new and p["cost"]>0 and p["price"]>0:
             _cost=p["cost"]; _price=p["price"]
             _floor=_cost if is_dead else _cost*1.05            # dead=breakeven cash-recovery, over=keep 5%
             _promo=math.ceil(_floor)

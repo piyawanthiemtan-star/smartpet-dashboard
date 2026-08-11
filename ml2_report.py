@@ -1090,6 +1090,14 @@ def main():
 
     today_sales = query_today_sales(con, day)
     abc = compute_abc(con, day, ABC_WINDOW_DAYS)
+    # สินค้าเข้าใหม่ <=30 วัน ไม่นับเป็นคลาส C (ให้เวลาทดลองขาย) [Owner เคาะ 2026-08-11]
+    # -> ใช้เกณฑ์กลาง "-" (3 วัน) แทนเกณฑ์ C ที่ตัดแรงกว่า (2 วัน)
+    for (nbc,) in con.execute(
+            "SELECT Barcode FROM Product WHERE IsDelete=0 AND date([Create]) >= date(?, '-30 day')",
+            (day,)):
+        k = str(nbc).strip()
+        if abc.get(k) == "C":
+            abc[k] = "-"
     avg_daily = compute_avg_daily(con, day)                       # เฉลี่ย 30 วัน
     avg_recent = compute_avg_daily(con, day, COVER_RECENT_DAYS)   # เฉลี่ย 7 วันล่าสุด (จับฤดูกาล)
     requisition, issues, skipped = build_requisition(
