@@ -1023,7 +1023,8 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
 
         // 1) ล็อกอินผ่าน Supabase (เลือกชื่อ + PIN)
         if (empId) {
-          const { status, data } = await portalCall(env, { action: "login", employee_id: empId, pin });
+          const { status, data } = await portalCall(env, { action: "login", employee_id: empId, pin,
+            client_ip: request.headers.get("CF-Connecting-IP") || "" });   // ให้ rate-limit เก็บ IP จริงของผู้ใช้ไว้ตรวจย้อนหลัง
           if (status === 200 && data.employee) {
             const sess = {
               user: data.employee.name,
