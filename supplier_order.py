@@ -34,6 +34,7 @@ ML2_DIR = os.environ.get("SUP_ML2_DIR", BASE + r"\SmartPetBackup\Daily\Onepoint 
 TPL = os.environ.get("SUP_TPL", os.path.join(HERE, "supplier_order_template.html"))
 OUT = os.environ.get("SUP_OUT", os.path.join(HERE, "output", "purchasing-order.html"))
 MASTER = os.environ.get("SUP_MASTER", os.path.join(HERE, "Master_Multiplier.xlsx"))
+VMAP_MANUAL = os.environ.get("SUP_VMAP", os.path.join(HERE, "vendor_map_manual.csv"))
 
 COVER_DAYS = 14   # แนะนำสั่ง = เติมให้พอกี่วัน (เบียร์แก้จำนวนเองได้อยู่แล้ว)
 PACK_UNIT_BY_MULT = {12: "โหล", 24: "ลัง"}   # ชื่อหน่วยแพ็คตามตัวคูณ (อื่นๆ = "ลัง")
@@ -75,6 +76,20 @@ def load_master_mult(path):
     return out
 
 
+def load_manual_map(path):
+    """vendor_map_manual.csv -> บาร์โค้ด -> vendor id
+    การผูกมือจากหน้าเว็บ (เบียร์ติ๊กแล้วบันทึก) — ชนะทุกชั้น รวมถึงใช้แก้ตัวที่ระบบเดาผิด"""
+    out = {}
+    if not os.path.exists(path):
+        return out
+    import csv
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        for row in csv.reader(f):
+            if len(row) >= 2 and row[0].strip() and row[0].strip().lower() != "barcode":
+                out[row[0].strip()] = row[1].strip()
+    return out
+
+
 def newest_db(folder):
     fs = glob.glob(os.path.join(folder, "*.db"))
     return max(fs, key=os.path.getmtime) if fs else None
@@ -112,6 +127,11 @@ def main():
         WHERE d.IsDelete=0 AND TRIM(COALESCE(o.VendorId,'')) <> ''"""):
         vmap.setdefault(str(bc).strip(), str(vid).strip())  # ไม่ทับของจากประวัติรับของ
     print(f"สินค้าที่โยงซัพได้: {len(vmap):,} บาร์โค้ด")
+
+    # --- ชั้นผูกมือจากหน้าเว็บ (ชนะทุกชั้น) — ตัดตัวที่ชี้ซัพที่ถูกลบไปแล้วทิ้ง ---
+    manual = {bc: v for bc, v in load_manual_map(VMAP_MANUAL).items() if v in vendors}
+    vmap.update(manual)
+    print(f"ผูกมือจากหน้าเว็บ: {len(manual):,} บาร์โค้ด")
 
     # --- ยอดขาย 30/90 วัน: รวม 2 สาขา (ML3 + ML2) [Owner สั่ง 2026-08-13] ---
     # ดีมานด์จริงของการสั่งซื้อเข้าโกดัง = ขายส่งที่ ML3 + ขายปลีกที่ ML2 (ไม่นับโอนระหว่างสาขา จึงไม่ซ้ำ)
@@ -196,17 +216,20 @@ def main():
         # มีตัวคูณ -> สั่งเต็มลังเท่านั้น: แนะนำเป็นจำนวนลังปัดขึ้น [Owner เคาะ 2026-08-13]
         sugg = math.ceil(need_units / mult) if (mult and need_units > 0) else need_units
         vid = vmap.get(bc, "")
+        src = "m" if bc in manual else ""   # แหล่งที่มา: m=ผูกมือ ""=ประวัติรับของ/PO c=เดาประเภท b=เดาแบรนด์
         if not vid:
             vid = cat_guess.get((cat or "-").strip(), "")
             if vid:
                 n_by_cat += 1
+                src = "c"
             else:
                 vid = brand_guess.get(brand_key(name), "")
                 if vid:
                     n_by_brand += 1
+                    src = "b"
         items.append({
             "bc": bc, "name": (name or "").strip(), "unit": (unit or "").strip(),
-            "cat": (cat or "-").strip(), "vid": vid,
+            "cat": (cat or "-").strip(), "vid": vid, "src": src,
             "st3": round(st3, 1), "st2": round(st2, 1), "tot": round(total, 1),
             "s30": round(s30, 1),
             "cost": round(cost or 0, 2), "sugg": sugg,
@@ -214,7 +237,8 @@ def main():
         })
     n_mapped = sum(1 for x in items if x["vid"])
     print(f"สินค้าในหน้า: {len(items):,} (โยงซัพแล้ว {n_mapped:,} "
-          f"[เดาจากประเภท {n_by_cat:,} · จากแบรนด์ {n_by_brand:,}] "
+          f"[ผูกมือ {sum(1 for x in items if x['src'] == 'm'):,} "
+          f"· เดาจากประเภท {n_by_cat:,} · จากแบรนด์ {n_by_brand:,}] "
           f"· ยังไม่ระบุ {len(items)-n_mapped:,} · มีตัวคูณ {sum(1 for x in items if x['mult']):,})")
 
     data = {

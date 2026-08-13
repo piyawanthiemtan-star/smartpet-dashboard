@@ -32,6 +32,13 @@
   td.qty input { width:70px; font-family:inherit; font-size:14px; padding:4px 6px; text-align:center; border:1px solid #c9d2dd; border-radius:6px; }
   tr.sugg td { background:#fffbe9; }
   .casechip { display:inline-block; background:#e8f0f8; color:#1a3a5c; border-radius:6px; padding:1px 8px; font-size:12px; font-weight:700; white-space:nowrap; }
+  .guess { display:inline-block; background:#fdf0e3; color:#9a5b13; border-radius:6px; padding:0 6px; font-size:11px; margin-left:6px; white-space:nowrap; }
+  .bindbar { background:#f0f6ef; border:1px solid #bcd8bc; border-radius:8px; padding:8px 12px; }
+  .bindbar select { font-family:inherit; font-size:13.5px; padding:6px 8px; border:1px solid #c9d2dd; border-radius:8px; max-width:100%; }
+  .bindbar button { background:#1c7a4a; color:#fff; }
+  .bindbar button:disabled { opacity:.5; cursor:default; }
+  #bindmsg { font-size:13px; color:#1c7a4a; }
+  #bindmsg.err { color:#b3261e; }
   .tblwrap { overflow-x:auto; max-height:62vh; overflow-y:auto; border:1px solid #dfe5ec; }
   .total { margin:8px 0; font-weight:700; }
   .hint { background:#eef3f7; border-radius:8px; padding:8px 12px; font-size:12.5px; margin:8px 0; color:#3a4a5e; }
@@ -64,7 +71,9 @@
   <div class="hint">เลือกซัพ → ระบบติ๊กตัวที่ควรสั่งให้ (พื้นเหลือง = แนะนำสั่ง เติมให้พอ <span id="cdays"></span> วัน
     โดยหัก<b>สต๊อกรวม 2 สาขา</b> — ของที่กองอยู่หน้าร้าน ML2 ถูกนับแล้ว ไม่สั่งซ้ำ)
     · <b>ตัวที่มีป้าย xN = สั่งเต็มลัง/โหลเท่านั้น</b> (จำนวนสั่ง = จำนวนลัง)
-    → แก้จำนวนได้ → 🖨 พิมพ์ยื่นเซลล์ หรือ 📋 คัดลอกส่ง LINE</div>
+    → แก้จำนวนได้ → 🖨 พิมพ์ยื่นเซลล์ หรือ 📋 คัดลอกส่ง LINE<br>
+    🔗 <b>ผูกซัพ:</b> เปิดกลุ่ม "❓ ยังไม่ระบุ" (หรือกลุ่มที่มีป้าย <span class="guess">เดา</span>)
+    → ติ๊กสินค้า → เลือกเจ้าในแถบเขียว → 💾 บันทึก — จำถาวร ใช้แก้ตัวที่ระบบเดาผิดได้ด้วย</div>
   <div class="pick">
     <select id="vsel"><option value="">— เลือกซัพพลายเออร์ —</option></select>
     <select id="csel" style="min-width:180px"><option value="">ทุกประเภทสินค้า</option></select>
@@ -94,6 +103,12 @@
     <button class="bsort" data-k="name">ชื่อ ก-ฮ</button>
     <span id="msg"></span>
   </div>
+  <div class="toolrow bindbar" id="bindrow" style="display:none">
+    🔗 ผูกซัพให้ตัวที่ติ๊ก:
+    <select id="bindsel"><option value="">— เลือกซัพพลายเออร์ —</option></select>
+    <button id="bbind">💾 บันทึกผูกซัพ</button>
+    <span id="bindmsg"></span>
+  </div>
   <div class="tblwrap" id="tw" style="display:none"><table class="main"><thead><tr>
     <th>เลือก</th><th>บาร์โค้ด</th><th>สินค้า</th><th>ประเภท</th>
     <th>เหลือ ML3</th><th>เหลือ ML2</th><th>รวม 2 สาขา</th><th>ขาย 30 วัน (2 สาขา)</th>
@@ -119,10 +134,12 @@ document.getElementById("cdays").textContent = D.coverDays;
 document.getElementById("buyer").value = D.company.buyer;
 document.getElementById("approver").value = D.company.approver;
 
-// dropdown: ซัพที่มีสินค้า (นับให้ดูเลย) + กลุ่มยังไม่ระบุ
-(function(){
+// dropdown: ซัพที่มีสินค้า (นับให้ดูเลย) + กลุ่มยังไม่ระบุ — เรียกซ้ำหลังผูกซัพเพื่อนับใหม่
+function fillVendorSel(){
   var cnt = {}; D.items.forEach(function(x){ cnt[x.vid] = (cnt[x.vid]||0)+1; });
   var sel = document.getElementById("vsel");
+  var keep = sel.value;
+  sel.innerHTML = '<option value="">— เลือกซัพพลายเออร์ —</option>';
   D.vendors.forEach(function(v){
     if (!cnt[v.id]) return;
     var o = document.createElement("option");
@@ -132,6 +149,19 @@ document.getElementById("approver").value = D.company.approver;
   var o = document.createElement("option");
   o.value = "?"; o.textContent = "❓ ยังไม่ระบุซัพพลายเออร์ (" + (cnt[""]||0) + " รายการ)";
   sel.appendChild(o);
+  sel.value = keep;
+  if (sel.selectedIndex < 0) sel.value = "";   // กลุ่มเดิมหายไป (เช่น ผูกครบทั้งกลุ่ม)
+}
+fillVendorSel();
+
+// dropdown ผูกซัพ: โชว์ทุกเจ้า (รวมเจ้าที่ยังไม่มีสินค้าในหน้า)
+(function(){
+  var sel = document.getElementById("bindsel");
+  D.vendors.forEach(function(v){
+    var o = document.createElement("option");
+    o.value = v.id; o.textContent = v.name;
+    sel.appendChild(o);
+  });
 })();
 
 function orderUnit(x){ return x.mult ? (x.punit + " (x" + x.mult + ")") : (x.unit || "ชิ้น"); }
@@ -176,6 +206,7 @@ function render(){
   var vc = document.getElementById("vcard");
   var show = !!vid;
   ["tools","tw"].forEach(function(i){ document.getElementById(i).style.display = show ? (i==="tools"?"flex":"block") : "none"; });
+  document.getElementById("bindrow").style.display = show ? "flex" : "none";
   document.getElementById("who").style.display = show ? "flex" : "none";
   if (!show) { vc.style.display="none"; document.getElementById("tb").innerHTML=""; document.getElementById("tot").textContent=""; return; }
   if (vid !== "?" && VBY[vid]) {
@@ -192,7 +223,9 @@ function render(){
     h.push('<tr data-bc="' + esc(x.bc) + '"' + (sg > 0 ? ' class="sugg"' : '') + '>'
       + '<td class="c"><input type="checkbox" class="ck"' + (sg > 0 ? ' checked' : '') + '></td>'
       + '<td class="bc">' + esc(x.bc) + '</td>'
-      + '<td>' + esc(x.name) + '</td>'
+      + '<td>' + esc(x.name) + (x.src === "c" || x.src === "b"
+          ? '<span class="guess" title="ระบบเดาจาก' + (x.src === "c" ? 'ประเภทสินค้า' : 'แบรนด์')
+            + ' — ถ้าผิด ติ๊กแถวนี้แล้วผูกซัพใหม่ได้เลย">เดา</span>' : '') + '</td>'
       + '<td style="font-size:12px" title="' + esc(x.cat) + '">' + esc((x.cat || "-").split(" ")[0]) + '</td>'
       + '<td class="c">' + x.st3 + '</td><td class="c">' + x.st2 + '</td>'
       + '<td class="c" style="font-weight:700">' + x.tot + '</td><td class="c">' + x.s30 + '</td>'
@@ -281,6 +314,36 @@ document.getElementById("bcopy").onclick = function(){
     setTimeout(function(){ msg.textContent = ""; }, 4000);
   }).catch(function(){
     msg.textContent = "⚠️ เบราว์เซอร์ไม่ให้คัดลอกอัตโนมัติ — ใช้ปุ่มพิมพ์แทน หรือลากเลือกข้อความเอง";
+  });
+};
+
+// ผูกสินค้า→ซัพ: ติ๊กแถว เลือกเจ้า กดบันทึก -> worker เขียน vendor_map_manual.csv เข้า repo
+// แจ้งผลผ่านข้อความในแถบเท่านั้น (ห้าม prompt/alert/confirm — กฎพอร์ทัล ปุ่มจะตายเงียบ)
+document.getElementById("bbind").onclick = function(){
+  var btn = this, m = document.getElementById("bindmsg");
+  var vid = document.getElementById("bindsel").value;
+  m.className = "err";
+  if (!vid) { m.textContent = "⚠️ เลือกซัพพลายเออร์ที่จะผูกก่อน"; return; }
+  var bcs = [];
+  document.querySelectorAll("#tb tr").forEach(function(tr){
+    if (tr.querySelector(".ck").checked) bcs.push(tr.dataset.bc);
+  });
+  if (!bcs.length) { m.textContent = "⚠️ ติ๊กสินค้าที่จะผูกก่อน (ช่องเลือกซ้ายสุด)"; return; }
+  btn.disabled = true; m.className = ""; m.textContent = "กำลังบันทึก " + bcs.length + " ตัว…";
+  fetch("/api/vendor-map/save", { method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ vid: vid, vname: (VBY[vid] || {}).name || "", bcs: bcs })
+  }).then(function(r){ return r.json(); }).then(function(j){
+    btn.disabled = false;
+    if (!j.ok) { m.className = "err"; m.textContent = "⚠️ " + (j.error || "บันทึกไม่สำเร็จ"); return; }
+    var inSet = {}; bcs.forEach(function(b){ inSet[b] = 1; });
+    D.items.forEach(function(x){ if (inSet[x.bc]) { x.vid = vid; x.src = "m"; } });
+    fillVendorSel(); fillCats(); render();
+    m.className = ""; m.textContent = "✅ ผูก " + j.n + " ตัวเข้ากับ \"" + ((VBY[vid] || {}).name || "")
+      + "\" แล้ว — หน้านี้ย้ายกลุ่มให้ทันที (บันทึกถาวร มีผลทุก build ต่อไป)";
+  }).catch(function(){
+    btn.disabled = false; m.className = "err";
+    m.textContent = "⚠️ ส่งไม่สำเร็จ (เครือข่ายมีปัญหา) — ลองใหม่อีกครั้ง";
   });
 };
 

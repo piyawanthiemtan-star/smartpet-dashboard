@@ -613,6 +613,85 @@ async function masterApi(request, env, url) {
   return jsonRes({ error: "ไม่พบ endpoint" }, 404);
 }
 
+// ===== ผูกสินค้า→ซัพพลายเออร์ (หน้าสั่งซื้อรายซัพ /purchasing-order) =====
+// เก็บ vendor_map_manual.csv ใน repo (ได้ประวัติ+ย้อนกลับฟรี เหมือนหน้า Master)
+// supplier_order.py อ่านไฟล์นี้เป็นชั้นที่ชนะทุกชั้น (ประวัติรับของ/PO/เดาประเภท/เดาแบรนด์)
+const VMAP_FILE = "vendor_map_manual.csv";
+const VMAP_HEADER = "barcode,vendor_id,vendor_name,by,date";
+
+function b64ToUtf8(b64) {
+  const bin = atob(String(b64 || "").replace(/\s+/g, ""));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function utf8ToB64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+async function vendorMapApi(request, env) {
+  if (request.method !== "POST") return jsonRes({ error: "ไม่พบ endpoint" }, 404);
+  const g = await masterGuard(request, env);   // ล็อกอิน + WiFi ร้าน + สิทธิ์จัดซื้อ (เหมือนหน้า Master)
+  if (g.err) return g.err;
+  const c = ghCfg(env);
+  if (!c.token) return jsonRes({ error: "ยังไม่ได้ตั้งค่า GH_TOKEN บน Cloudflare (ติดต่อผู้ดูแล)" }, 503);
+
+  const body = await request.json().catch(() => ({}));
+  const vid = String(body.vid || "").trim();
+  if (!/^[\w\-]{1,64}$/.test(vid)) return jsonRes({ error: "รหัสซัพพลายเออร์ไม่ถูกต้อง" }, 400);
+  const clean = (s, n) => String(s || "").slice(0, n).replace(/[",\r\n]+/g, " ").trim();
+  const vname = clean(body.vname, 80);
+  const by = clean(g.sess.user, 40);
+  let bcs = Array.isArray(body.bcs) ? body.bcs.map((b) => String(b || "").trim()) : [];
+  bcs = [...new Set(bcs.filter((b) => /^[0-9A-Za-z.\-]{3,32}$/.test(b)))];
+  if (!bcs.length) return jsonRes({ error: "ไม่มีบาร์โค้ดที่ใช้ได้ในรายการที่ส่งมา" }, 400);
+  if (bcs.length > 2000) return jsonRes({ error: "ครั้งละไม่เกิน 2,000 รายการ" }, 400);
+
+  const p = encodeURIComponent(VMAP_FILE);
+  const today = new Date().toISOString().slice(0, 10);
+  let lastErr = "";
+  for (let attempt = 0; attempt < 2; attempt++) {   // ไฟล์ขยับระหว่างทาง (คนอื่นบันทึกพร้อมกัน) = ดึงใหม่ ลองอีกรอบเดียว
+    const cur = await gh(env, "/contents/" + p + "?ref=" + encodeURIComponent(c.branch));
+    let sha = null;
+    const rows = new Map();                          // bc -> บรรทัด CSV (บันทึกใหม่ทับตัวเดิมของบาร์โค้ดนั้น)
+    if (cur.ok) {
+      const j = await cur.json();
+      sha = j.sha;
+      for (const line of b64ToUtf8(j.content).split(/\r?\n/)) {
+        const bc = (line.split(",")[0] || "").trim();
+        if (bc && bc.toLowerCase() !== "barcode") rows.set(bc, line);
+      }
+    } else if (cur.status !== 404) {                 // 404 = ยังไม่มีไฟล์ -> เริ่มไฟล์ใหม่ได้
+      return jsonRes({ error: "อ่านไฟล์ผูกซัพไม่ได้ (" + cur.status + ")" + (cur.status === 401 ? ghAuthHint(env) : "") }, 502);
+    }
+    for (const bc of bcs) rows.set(bc, [bc, vid, vname, by, today].join(","));
+    const text = VMAP_HEADER + "\n" + [...rows.values()].join("\n") + "\n";
+    const put = await gh(env, "/contents/" + p, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({
+        message: "ผูกซัพ " + bcs.length + " ตัว -> " + (vname || vid) + " โดย " + by,
+        content: utf8ToB64(text), branch: c.branch }, sha ? { sha } : {})),
+    });
+    if (put.ok) {
+      const pj = await put.json().catch(() => ({}));
+      const disp = await gh(env, "/dispatches", {   // สั่ง build ใหม่ (event เดียวกับหน้า Master — deploy.yml รับอยู่แล้ว)
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_type: "master-updated", client_payload: { file: VMAP_FILE, by, n: bcs.length } }),
+      });
+      return jsonRes({ ok: true, n: bcs.length,
+        commit: pj.commit && pj.commit.sha ? pj.commit.sha.slice(0, 7) : "",
+        dispatched: disp.status === 204 });
+    }
+    lastErr = String(put.status);
+    if (put.status !== 409 && put.status !== 422) break;
+  }
+  return jsonRes({ error: "บันทึกไม่สำเร็จ (" + lastErr + ") — กดบันทึกอีกครั้ง" }, 502);
+}
+
 // สคริปต์ฝั่งเบราว์เซอร์ของหน้าอัปเดต Master — ตรวจไฟล์ + เทียบกับของเดิมก่อนยืนยัน
 // (เขียนแบบต่อสตริง ไม่ใช้ backtick/${ } เพราะอยู่ใน template literal ของ worker)
 const MASTER_JS = `
@@ -987,6 +1066,7 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return masterPage(sess);
     }
     if (path.startsWith("/api/master/")) return masterApi(request, env, url);
+    if (path === "/api/vendor-map/save") return vendorMapApi(request, env);
 
     // สรุปผู้บริหาร — เฉพาะ owner/admin เท่านั้น · แยกไฟล์จากหน้าจัดซื้อ
     // (ข้อมูลกำไร/มาร์จิ้น/เร่งระบายไม่ถูกฝังในไฟล์จัดซื้อ ทีมจัดซื้อจึงเปิดดูไม่ได้แม้ view-source)
