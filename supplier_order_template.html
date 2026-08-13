@@ -112,7 +112,7 @@
   <div class="tblwrap" id="tw" style="display:none"><table class="main"><thead><tr>
     <th>เลือก</th><th>บาร์โค้ด</th><th>สินค้า</th><th>ประเภท</th>
     <th>เหลือ ML3</th><th>เหลือ ML2</th><th>รวม 2 สาขา</th><th>ขาย 30 วัน (2 สาขา)</th>
-    <th>ทุนซื้อ</th><th>ต่อลัง</th><th>จำนวนสั่ง</th><th>หน่วยสั่ง</th>
+    <th>ทุนซื้อ</th><th>ต่อลัง</th><th>แนะนำสั่ง</th><th>จำนวนสั่ง</th><th>หน่วยสั่ง</th>
   </tr></thead><tbody id="tb"></tbody></table></div>
   <p class="total" id="tot"></p>
   <div id="printArea"></div>
@@ -121,8 +121,9 @@ var D = __DATA__;
 var VBY = {}; D.vendors.forEach(function(v){ VBY[v.id] = v; });
 var SORTK = "sugg";
 var COVER = 14;   // ระยะรอของซัพ (วันที่สั่งเผื่อ) — ปุ่ม 5-7/7-14/14-30 เปลี่ยนค่านี้ [Owner เคาะ]
+function needOf(x){ return Math.max(0, Math.ceil((x.s30/30)*COVER - x.tot)); }   // ขาดกี่ชิ้นถึงพอขาย COVER วัน
 function suggOf(x){
-  var need = Math.max(0, Math.ceil((x.s30/30)*COVER - x.tot));
+  var need = needOf(x);
   if (x.mult && need > 0) return Math.ceil(need / x.mult);   // มีตัวคูณ -> จำนวนลังปัดขึ้น
   return need;
 }
@@ -220,7 +221,12 @@ function render(){
   } else { vc.style.display = "none"; }
   var rows = curItems(), h = [];
   rows.forEach(function(x){
-    var sg = suggOf(x);
+    var sg = suggOf(x), nd = needOf(x);
+    // คอลัมน์แนะนำสั่ง: ระบบคิดให้เห็นตลอด (แก้ช่องจำนวนแล้วตัวเลขแนะนำไม่หาย — จัดซื้อไม่ต้องเดา)
+    var rec = sg > 0
+      ? '<b>' + sg + '</b> ' + esc(x.mult ? x.punit : (x.unit || "ชิ้น"))
+        + (x.mult ? '<br><span style="color:#8a97a6;font-size:11px">ขาด ' + nd + ' ชิ้น</span>' : '')
+      : '<span style="color:#8a97a6">-</span>';
     h.push('<tr data-bc="' + esc(x.bc) + '"' + (sg > 0 ? ' class="sugg"' : '') + '>'
       + '<td class="c"><input type="checkbox" class="ck"' + (sg > 0 ? ' checked' : '') + '></td>'
       + '<td class="bc">' + esc(x.bc) + '</td>'
@@ -232,6 +238,7 @@ function render(){
       + '<td class="c" style="font-weight:700">' + x.tot + '</td><td class="c">' + x.s30 + '</td>'
       + '<td class="r">' + (x.cost || "-") + '</td>'
       + '<td class="c">' + (x.mult ? '<span class="casechip">x' + x.mult + '</span>' : '-') + '</td>'
+      + '<td class="c" style="white-space:nowrap">' + rec + '</td>'
       + '<td class="qty c"><input type="number" min="0" step="1" class="qy" value="' + (sg || "") + '"></td>'
       + '<td class="c">' + esc(orderUnit(x)) + '</td></tr>');
   });
