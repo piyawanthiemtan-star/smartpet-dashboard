@@ -1913,13 +1913,13 @@ async function saveStoreFromEditor() {
   if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
   try {
     if (editingStoreId == null) {
-      const { data: row, error } = await sb.from('stores').insert(payload).select().single();
+      const { data: row, error } = await sb.from('lsmg_stores').insert(payload).select().single();
       if (error) throw error;
       pushSnapshot();
       mutateStores(() => { STORES.push(rowToStore(row)); });
     } else {
       const target = STORES[editingStoreId];
-      const { data: row, error } = await sb.from('stores').update(payload).eq('id', target.id).select().single();
+      const { data: row, error } = await sb.from('lsmg_stores').update(payload).eq('id', target.id).select().single();
       if (error) throw error;
       pushSnapshot();
       Object.keys(target).forEach(k => { if (k !== '_id') delete target[k]; });
@@ -1940,7 +1940,7 @@ async function deleteStoreFromEditor() {
   if (dataMode !== 'online') { alert('ตอนนี้ออฟไลน์ — ยังลบข้อมูลไม่ได้'); return; }
   if (!confirm('ลบร้าน "' + codeName(s) + '" ?\n\nข้อมูลจะถูกลบออกจากฐานข้อมูลกลาง')) return;
   try {
-    const { error } = await sb.from('stores').delete().eq('id', s.id);
+    const { error } = await sb.from('lsmg_stores').delete().eq('id', s.id);
     if (error) throw error;
     pushSnapshot();
     const delId = editingStoreId;
@@ -2095,8 +2095,8 @@ function renderBackupReminder() {
 
 /* ============ SUPABASE MODULE ============ */
 /* ============ SUPABASE — ฐานข้อมูลกลาง + ล็อกอิน ============ */
-const SUPABASE_URL = 'https://bflucemufoebriklesyj.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmbHVjZW11Zm9lYnJpa2xlc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNDQ3OTEsImV4cCI6MjEwMDcyMDc5MX0.Eq4j45Cx_deVVBXI9_hKf3ZJG2rrcMEwlcWNJrCO1js';
+const SUPABASE_URL = 'https://ihtpdwgdbcxojpmisaaz.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlodHBkd2dkYmN4b2pwbWlzYWF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1Mzc3MzYsImV4cCI6MjA5ODExMzczNn0.crebqd0oBr_3P-0EE7gTX9gvge_s3pYgVSX_9X_HpAQ';
 const STORE_CACHE_KEY = 'storeCache_v1';
 let sb = null;
 let currentUser = null;
@@ -2125,7 +2125,7 @@ function loadCachedStores() {
   } catch (e) { return null; }
 }
 async function sbLoadStores() {
-  const { data, error } = await sb.from('stores').select('*').order('code', { nullsFirst: false });
+  const { data, error } = await sb.from('lsmg_stores').select('*').order('code', { nullsFirst: false });
   if (error) throw error;
   return data;
 }
