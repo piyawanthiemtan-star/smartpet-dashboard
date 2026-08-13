@@ -176,12 +176,24 @@ def main():
     print(f"ตัวคูณจาก Master: {len(mults):,} บาร์โค้ด")
 
     # --- อ่านสินค้าทั้งหมดก่อน (ใช้สร้างชั้นเดาซัพจากประเภท/แบรนด์) ---
-    raw = [(str(r[0]).strip(), r[1] or "", r[2] or 0, r[3] or 0, r[4] or "", r[5] or "-")
+    # p.VendorId = ซัพจากการ์ดสินค้าใน POS (ทีมเริ่มกรอก 14 ส.ค. 2569 — เดิมว่าง 0%)
+    raw = [(str(r[0]).strip(), r[1] or "", r[2] or 0, r[3] or 0, r[4] or "", r[5] or "-",
+            str(r[6] or "").strip())
            for r in con.execute("""
-        SELECT p.Barcode, p.Name, p.Qty, p.Cost, COALESCE(u.Name,''), COALESCE(c.Name,'-')
+        SELECT p.Barcode, p.Name, p.Qty, p.Cost, COALESCE(u.Name,''), COALESCE(c.Name,'-'),
+               p.VendorId
         FROM Product p LEFT JOIN ProductUnit u ON u.Id = p.Unit
         LEFT JOIN ProductCategory c ON c.Id = p.Category
         WHERE p.IsDelete=0""")]
+
+    # ลำดับชั้นข้อมูลซัพ: ผูกมือบนเว็บ > การ์ดสินค้า POS > ประวัติรับของ/PO (> เดาประเภท/แบรนด์)
+    n_pos = 0
+    def direct_vid(bc, pos_vid):
+        if bc in manual:
+            return manual[bc]
+        if pos_vid and pos_vid in vendors:
+            return pos_vid
+        return vmap.get(bc, "")
 
     # --- ชั้นเดาซัพ [Owner เคาะ 2026-08-13: "จับจากรหัสประเภทได้เลย ไม่ต้องรอ"] ---
     # ของ 2,206 ตัวไม่เคยถูกบันทึกซัพ (ทีมรับผ่านเครื่องไม่เลือกบริษัท) จึงเดาจาก:
@@ -193,8 +205,8 @@ def main():
         return (tok[0] if tok and tok[0] else str(nm or "").split(" ")[0]).lower()
 
     cat_v, brand_v = defaultdict(Counter), defaultdict(Counter)
-    for bc, nm, _q, _c, _u, cat in raw:
-        v = vmap.get(bc)
+    for bc, nm, _q, _c, _u, cat, pv in raw:
+        v = direct_vid(bc, pv)
         if not v:
             continue
         if cat != "-":
@@ -212,7 +224,7 @@ def main():
     # --- สินค้า (เอาเฉพาะตัวที่มีความเคลื่อนไหว: มีสต๊อก หรือขายใน 90 วัน) ---
     # สต๊อกคงเหลือ = ของ ML3 (โกดัง — คลังที่สั่งซื้อเข้า) [Owner ยืนยัน 2026-08-13]
     items = []
-    for bc, name, qty, cost, unit, cat in raw:
+    for bc, name, qty, cost, unit, cat, pv in raw:
         st3 = qty or 0
         st2 = stock_ml2.get(bc, 0)
         s30 = sold30.get(bc, 0)
@@ -226,8 +238,10 @@ def main():
         mult, punit = mults.get(bc, (0, ""))
         # มีตัวคูณ -> สั่งเต็มลังเท่านั้น: แนะนำเป็นจำนวนลังปัดขึ้น [Owner เคาะ 2026-08-13]
         sugg = math.ceil(need_units / mult) if (mult and need_units > 0) else need_units
-        vid = vmap.get(bc, "")
-        src = "m" if bc in manual else ""   # แหล่งที่มา: m=ผูกมือ ""=ประวัติรับของ/PO c=เดาประเภท b=เดาแบรนด์
+        vid = direct_vid(bc, pv)
+        src = "m" if bc in manual else ""   # แหล่งที่มา: m=ผูกมือ ""=การ์ดสินค้า/ประวัติรับของ/PO c=เดาประเภท b=เดาแบรนด์
+        if vid and src != "m" and pv and pv in vendors:
+            n_pos += 1
         if not vid:
             vid = cat_guess.get((cat or "-").strip(), "")
             if vid:
@@ -249,6 +263,7 @@ def main():
     n_mapped = sum(1 for x in items if x["vid"])
     print(f"สินค้าในหน้า: {len(items):,} (โยงซัพแล้ว {n_mapped:,} "
           f"[ผูกมือ {sum(1 for x in items if x['src'] == 'm'):,} "
+          f"· การ์ดสินค้า POS {n_pos:,} "
           f"· เดาจากประเภท {n_by_cat:,} · จากแบรนด์ {n_by_brand:,}] "
           f"· ยังไม่ระบุ {len(items)-n_mapped:,} · มีตัวคูณ {sum(1 for x in items if x['mult']):,})")
 
