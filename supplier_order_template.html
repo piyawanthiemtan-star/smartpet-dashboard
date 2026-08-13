@@ -129,7 +129,8 @@ function suggOf(x){
 var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); };
 var pad = function(n){ return (n<10?"0":"")+n; };
 
-document.getElementById("gen").textContent = "ข้อมูลโกดัง ML3 ณ " + D.generatedTh + " · อัปเดตอัตโนมัติทุกรอบระบบ";
+document.getElementById("gen").textContent = "บิลล่าสุดใน backup ML3: " + (D.lastBillTh || "-")
+  + " · ประมวลผล " + D.generatedTh + " · อัปเดตอัตโนมัติทุกรอบระบบ";
 document.getElementById("cdays").textContent = D.coverDays;
 document.getElementById("buyer").value = D.company.buyer;
 document.getElementById("approver").value = D.company.approver;

@@ -36,6 +36,7 @@ OUT = os.environ.get("SUP_OUT", os.path.join(HERE, "output", "purchasing-order.h
 MASTER = os.environ.get("SUP_MASTER", os.path.join(HERE, "Master_Multiplier.xlsx"))
 VMAP_MANUAL = os.environ.get("SUP_VMAP", os.path.join(HERE, "vendor_map_manual.csv"))
 
+BKK = datetime.timezone(datetime.timedelta(hours=7))   # ตรึง +07:00 — GitHub runner เป็น UTC (บทเรียน 29 ก.ค.)
 COVER_DAYS = 14   # แนะนำสั่ง = เติมให้พอกี่วัน (เบียร์แก้จำนวนเองได้อยู่แล้ว)
 PACK_UNIT_BY_MULT = {12: "โหล", 24: "ลัง"}   # ชื่อหน่วยแพ็คตามตัวคูณ (อื่นๆ = "ลัง")
 
@@ -101,6 +102,16 @@ def main():
         sys.exit(f"ไม่พบไฟล์ backup ใน {ML3_DIR}")
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     print("ใช้ backup:", os.path.basename(db))
+
+    # ความสดของข้อมูล = บิลใบล่าสุดใน backup (กฎเหล็ก: ห้ามใช้เวลารันสคริปต์/mtime)
+    last_bill = con.execute("SELECT MAX([Create]) FROM Orders WHERE IsDelete=0").fetchone()[0]
+    last_bill_th = ""
+    if last_bill:
+        try:
+            last_bill_th = datetime.datetime.fromisoformat(
+                str(last_bill).replace("T", " ")).strftime("%d/%m/%Y %H:%M")
+        except ValueError:
+            pass
 
     # --- ซัพพลายเออร์ ---
     vendors = {}
@@ -242,7 +253,8 @@ def main():
           f"· ยังไม่ระบุ {len(items)-n_mapped:,} · มีตัวคูณ {sum(1 for x in items if x['mult']):,})")
 
     data = {
-        "generatedTh": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "generatedTh": datetime.datetime.now(BKK).strftime("%d/%m/%Y %H:%M"),
+        "lastBillTh": last_bill_th,
         "coverDays": COVER_DAYS,
         "company": COMPANY,
         "vendors": sorted(vendors.values(), key=lambda v: v["name"]),

@@ -24,7 +24,9 @@ import os
 import re
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+BKK = timezone(timedelta(hours=7))   # ตรึง +07:00 — GitHub runner เป็น UTC (บทเรียน 29 ก.ค.)
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -1075,7 +1077,7 @@ def main():
 
     day, complete = get_target_day(con, backup_date)
     doc_no = next_doc_no(day)
-    printed_at = datetime.now().strftime("%d/%m/%Y %H:%M")
+    printed_at = datetime.now(BKK).strftime("%d/%m/%Y %H:%M")
     print(f"  วันที่ประมวลผล (วันสมบูรณ์ล่าสุด): {day}")
     if not complete:
         print("  !! เตือน: ยังไม่พบ backup ที่ถ่ายหลังวันนี้ปิดร้าน ยอดอาจยังไม่ครบ")

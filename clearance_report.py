@@ -29,6 +29,9 @@ OUT = os.environ.get("CLR_OUT", os.path.join(HERE, "output", "clearance.html"))
 ROUND_END = "2026-09-03"   # กำหนดจบรอบ (~4 สัปดาห์) — จบแล้วทำใบคืนราคา
 
 
+BKK = datetime.timezone(datetime.timedelta(hours=7))   # ตรึง +07:00 — GitHub runner เป็น UTC (บทเรียน 29 ก.ค.)
+
+
 def newest_db(folder):
     fs = glob.glob(os.path.join(folder, "*.db"))
     return max(fs, key=os.path.getmtime) if fs else None
@@ -39,7 +42,7 @@ def main():
         sys.exit("ไม่พบ clearance_baseline.csv")
     base = list(csv.DictReader(open(BASELINE, encoding="utf-8-sig")))
     start = base[0]["start_date"]
-    today = datetime.date.today().isoformat()
+    today = datetime.datetime.now(BKK).date().isoformat()   # วันไทย — today() บน runner UTC จะเพี้ยนช่วงเที่ยงคืน-7 โมง
     day_no = (datetime.date.fromisoformat(today) - datetime.date.fromisoformat(start)).days + 1
     week_no = (day_no - 1) // 7 + 1
 
@@ -135,7 +138,7 @@ def main():
                   f'<td class="r">{v[1]:,.0f}</td></tr>' for w, v in sorted(weeks.items()))
     btr = "".join(f'<tr><td class="c">{b}</td><td class="c">{v[0]:,.0f}</td>'
                   f'<td class="r">{v[1]:,.0f}</td></tr>' for b, v in sorted(per_branch.items()))
-    stamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+    stamp = datetime.datetime.now(BKK).strftime("%d/%m/%Y %H:%M")
 
     doc = f"""<!doctype html>
 <html lang="th"><head><meta charset="utf-8">
