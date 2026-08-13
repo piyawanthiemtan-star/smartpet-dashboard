@@ -28,6 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BASE = r"D:\1. SmartPet AI Framework"
 
 ML3_DIR = os.environ.get("SUP_ML3_DIR", BASE + r"\SmartPetData\Import\OnePoint\Blackup 2026")
+ML2_DIR = os.environ.get("SUP_ML2_DIR", BASE + r"\SmartPetBackup\Daily\Onepoint ML2 Blackup")
 TPL = os.environ.get("SUP_TPL", os.path.join(HERE, "supplier_order_template.html"))
 OUT = os.environ.get("SUP_OUT", os.path.join(HERE, "output", "purchasing-order.html"))
 MASTER = os.environ.get("SUP_MASTER", os.path.join(HERE, "Master_Multiplier.xlsx"))
@@ -110,25 +111,39 @@ def main():
         vmap.setdefault(str(bc).strip(), str(vid).strip())  # ไม่ทับของจากประวัติรับของ
     print(f"สินค้าที่โยงซัพได้: {len(vmap):,} บาร์โค้ด")
 
-    # --- ยอดขาย 30/90 วัน ---
+    # --- ยอดขาย 30/90 วัน: รวม 2 สาขา (ML3 + ML2) [Owner สั่ง 2026-08-13] ---
+    # ดีมานด์จริงของการสั่งซื้อเข้าโกดัง = ขายส่งที่ ML3 + ขายปลีกที่ ML2 (ไม่นับโอนระหว่างสาขา จึงไม่ซ้ำ)
     sold30, sold90 = {}, {}
-    for days, box in ((30, sold30), (90, sold90)):
-        for bc, q in con.execute(f"""
-            SELECT d.Barcode, SUM(d.Qty-COALESCE(d.QtyReturn,0))
-            FROM OrdersDetail d JOIN Orders o ON o.Id=d.OrderId AND o.IsDelete=0
-            WHERE d.IsDelete=0 AND date(o.[Create]) > date('now','-{days} day')
-            GROUP BY d.Barcode"""):
-            box[str(bc).strip()] = q or 0
+    sale_dbs = [("ML3", con)]
+    ml2_db = newest_db(ML2_DIR)
+    if ml2_db:
+        sale_dbs.append(("ML2", sqlite3.connect(f"file:{ml2_db}?mode=ro", uri=True)))
+        print("รวมยอดขาย ML2 จาก:", os.path.basename(ml2_db))
+    else:
+        print("!! ไม่พบ backup ML2 — ยอดขายเป็นของ ML3 สาขาเดียว")
+    for _br, c in sale_dbs:
+        for days, box in ((30, sold30), (90, sold90)):
+            for bc, q in c.execute(f"""
+                SELECT d.Barcode, SUM(d.Qty-COALESCE(d.QtyReturn,0))
+                FROM OrdersDetail d JOIN Orders o ON o.Id=d.OrderId AND o.IsDelete=0
+                WHERE d.IsDelete=0 AND date(o.[Create]) > date('now','-{days} day')
+                GROUP BY d.Barcode"""):
+                k = str(bc).strip()
+                box[k] = box.get(k, 0) + (q or 0)
+    if ml2_db:
+        sale_dbs[1][1].close()
 
     # --- ตัวคูณจาก Master: ตัวไหนต้องสั่งเต็มลัง/โหลเท่านั้น ---
     mults = load_master_mult(MASTER)
     print(f"ตัวคูณจาก Master: {len(mults):,} บาร์โค้ด")
 
     # --- สินค้า (เอาเฉพาะตัวที่มีความเคลื่อนไหว: มีสต๊อก หรือขายใน 90 วัน) ---
+    # สต๊อกคงเหลือ = ของ ML3 (โกดัง — คลังที่สั่งซื้อเข้า) [Owner ยืนยัน 2026-08-13]
     items = []
-    for bc, name, qty, cost, unit in con.execute("""
-        SELECT p.Barcode, p.Name, p.Qty, p.Cost, COALESCE(u.Name,'')
+    for bc, name, qty, cost, unit, cat in con.execute("""
+        SELECT p.Barcode, p.Name, p.Qty, p.Cost, COALESCE(u.Name,''), COALESCE(c.Name,'-')
         FROM Product p LEFT JOIN ProductUnit u ON u.Id = p.Unit
+        LEFT JOIN ProductCategory c ON c.Id = p.Category
         WHERE p.IsDelete=0"""):
         bc = str(bc).strip()
         stock = qty or 0
@@ -143,7 +158,7 @@ def main():
         sugg = math.ceil(need_units / mult) if (mult and need_units > 0) else need_units
         items.append({
             "bc": bc, "name": (name or "").strip(), "unit": (unit or "").strip(),
-            "vid": vmap.get(bc, ""), "stock": round(stock, 1),
+            "cat": (cat or "-").strip(), "vid": vmap.get(bc, ""), "stock": round(stock, 1),
             "s30": round(s30, 1), "avg": round(avg, 2),
             "cost": round(cost or 0, 2), "sugg": sugg,
             "mult": mult, "punit": punit,

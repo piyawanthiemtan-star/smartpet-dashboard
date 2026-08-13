@@ -66,6 +66,7 @@
     → แก้จำนวนได้ → 🖨 พิมพ์ยื่นเซลล์ หรือ 📋 คัดลอกส่ง LINE</div>
   <div class="pick">
     <select id="vsel"><option value="">— เลือกซัพพลายเออร์ —</option></select>
+    <select id="csel" style="min-width:180px"><option value="">ทุกประเภทสินค้า</option></select>
     <input id="q" placeholder="ค้นหาชื่อสินค้า/บาร์โค้ด..." style="flex:1;min-width:200px">
   </div>
   <div class="vcard" id="vcard"></div>
@@ -87,7 +88,7 @@
     <span id="msg"></span>
   </div>
   <div class="tblwrap" id="tw" style="display:none"><table class="main"><thead><tr>
-    <th>เลือก</th><th>บาร์โค้ด</th><th>สินค้า</th><th>เหลือ (ชิ้น)</th><th>ขาย 30 วัน</th>
+    <th>เลือก</th><th>บาร์โค้ด</th><th>สินค้า</th><th>ประเภท</th><th>เหลือ ML3 (ชิ้น)</th><th>ขาย 30 วัน (2 สาขา)</th>
     <th>เฉลี่ย/วัน</th><th>ทุนซื้อ</th><th>ต่อลัง</th><th>จำนวนสั่ง</th><th>หน่วยสั่ง</th>
   </tr></thead><tbody id="tb"></tbody></table></div>
   <p class="total" id="tot"></p>
@@ -121,12 +122,31 @@ document.getElementById("approver").value = D.company.approver;
 
 function orderUnit(x){ return x.mult ? (x.punit + " (x" + x.mult + ")") : (x.unit || "ชิ้น"); }
 
-function curItems(){
+function vendItems(){
   var vid = document.getElementById("vsel").value;
   if (!vid) return [];
   var key = (vid === "?") ? "" : vid;
+  return D.items.filter(function(x){ return x.vid === key; });
+}
+
+function fillCats(){
+  // dropdown ประเภทสินค้า: เฉพาะประเภทที่มีในซัพที่เลือก (นับจำนวนให้ดู)
+  var sel = document.getElementById("csel");
+  var cnt = {};
+  vendItems().forEach(function(x){ cnt[x.cat] = (cnt[x.cat]||0)+1; });
+  sel.innerHTML = '<option value="">ทุกประเภทสินค้า</option>';
+  Object.keys(cnt).sort(function(a,b){ return a.localeCompare(b,"th"); }).forEach(function(c){
+    var o = document.createElement("option");
+    o.value = c; o.textContent = c + " (" + cnt[c] + ")";
+    sel.appendChild(o);
+  });
+}
+
+function curItems(){
+  var rows = vendItems();
+  var cat = document.getElementById("csel").value;
+  if (cat) rows = rows.filter(function(x){ return x.cat === cat; });
   var q = document.getElementById("q").value.trim().toLowerCase();
-  var rows = D.items.filter(function(x){ return x.vid === key; });
   if (q) rows = rows.filter(function(x){ return (x.name+" "+x.bc).toLowerCase().indexOf(q) >= 0; });
   rows.sort(function(a,b){
     if (SORTK === "name") return a.name.localeCompare(b.name, "th");
@@ -157,6 +177,7 @@ function render(){
       + '<td class="c"><input type="checkbox" class="ck"' + (x.sugg > 0 ? ' checked' : '') + '></td>'
       + '<td class="bc">' + esc(x.bc) + '</td>'
       + '<td>' + esc(x.name) + '</td>'
+      + '<td style="font-size:12px">' + esc(x.cat) + '</td>'
       + '<td class="c">' + x.stock + '</td><td class="c">' + x.s30 + '</td><td class="c">' + x.avg + '</td>'
       + '<td class="r">' + (x.cost || "-") + '</td>'
       + '<td class="c">' + (x.mult ? '<span class="casechip">x' + x.mult + '</span>' : '-') + '</td>'
@@ -246,7 +267,8 @@ document.getElementById("bcopy").onclick = function(){
   });
 };
 
-document.getElementById("vsel").onchange = render;
+document.getElementById("vsel").onchange = function(){ fillCats(); render(); };
+document.getElementById("csel").onchange = render;
 document.getElementById("q").oninput = render;
 document.querySelectorAll(".bsort").forEach(function(b){
   b.onclick = function(){

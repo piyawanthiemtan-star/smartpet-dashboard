@@ -129,7 +129,7 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: |
           if [ -d ml3work ]; then
-            if SUP_ML3_DIR=ml3work SUP_OUT=supout/purchasing-order.html python supplier_order.py; then
+            if SUP_ML3_DIR=ml3work SUP_ML2_DIR=ml2work SUP_OUT=supout/purchasing-order.html python supplier_order.py; then
               cp supout/purchasing-order.html cloud/dist/purchasing-order.html
               echo "หน้าสั่งซื้อรายซัพสร้างสำเร็จ"
             else
