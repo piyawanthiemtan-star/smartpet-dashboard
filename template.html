@@ -188,12 +188,8 @@
 
   <!-- ===== BUY VIEW ===== -->
   <div class="view on" id="v-buy">
-    <section class="kpis">
-      <div class="kpi warn"><div class="stripe"></div><div class="lbl">ต้องสั่งซื้อ</div><div class="val tnum" id="k-need">–</div><div class="foot">ต่ำกว่าจุดสั่งซื้อ</div></div>
-      <div class="kpi warn"><div class="stripe"></div><div class="lbl">มูลค่าสั่งซื้อ (ต้นทุน)</div><div class="val tnum" id="k-val">–</div><div class="foot">งบรอบนี้</div></div>
-      <div class="kpi dead"><div class="stripe"></div><div class="lbl">เงินจม · ไม่เคลื่อนไหว</div><div class="val tnum" id="k-dead">–</div><div class="foot" id="k-dead-f">–</div></div>
-      <div class="kpi over"><div class="stripe"></div><div class="lbl">สต๊อกบวม</div><div class="val tnum" id="k-over">–</div><div class="foot">ค้างเกิน 120 วันขาย</div></div>
-    </section>
+    <!-- การ์ดสรุป 4 ช่อง (ต้องสั่งซื้อ/มูลค่า/เงินจม/สต๊อกบวม) ย้ายไปหน้า /executive แล้ว
+         [Owner สั่ง 2026-08-13 — ภาพรวมตัวเงินเป็นเรื่องผู้บริหาร ทีมจัดซื้อใช้ตารางปฏิบัติการด้านล่าง] -->
     <div class="row2">
       <div class="panel"><h3>สัดส่วน ABC <span>ตามยอดขายสะสม (Pareto)</span></h3><div id="abc"></div></div>
       <div class="panel"><h3>หมวดที่ต้องสั่งมูลค่าสูงสุด <span id="cat-lead">Lead 7 วัน</span></h3><div id="cats"></div></div>
@@ -314,18 +310,7 @@ function passF(x){
   if(fst==="over"&&st!=="over")return false;
   return true;
 }
-function kpis(){
-  let need=0,val=0,dead=0,dv=0,over=0;
-  D.items.forEach(x=>{const o=effNative(x),st=statusOf(x);
-    if(o>0){need++;val+=orderValue(x);}
-    if(x.status==="dead"){dead++;dv+=x.stockval;}
-    if(st==="over")over++;});
-  $("k-need").textContent=need.toLocaleString();
-  $("k-val").textContent=kbaht(val);
-  $("k-dead").textContent=dead.toLocaleString()+" SKU";
-  $("k-dead-f").textContent="ทุนค้าง ~"+kbaht(dv)+" ควรระบายก่อน";
-  $("k-over").textContent=over.toLocaleString()+" SKU";
-}
+function kpis(){/* การ์ดสรุป 4 ช่องย้ายไปหน้า /executive แล้ว [Owner สั่ง 2026-08-13] — คงฟังก์ชันว่างไว้ให้จุดเรียกเดิมไม่พัง */}
 function summarize(){
   let c=0,cases=0,singles=0,v=0;
   D.items.forEach(x=>{const o=effNative(x);if(o>0){c++;v+=orderValue(x);if(hasCase(x))cases+=o;singles+=orderSingles(x);}});

@@ -66,7 +66,7 @@
   .tabs .count{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:20px;background:var(--warn-soft);color:var(--warn);font-size:11.5px;font-weight:750;margin-left:6px}
   .view{display:none} .view.on{display:block}
 
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:14px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:14px}
   .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
   .kpi .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
   .kpi.warn .stripe{background:var(--warn)}.kpi.dead .stripe{background:var(--dead)}.kpi.over .stripe{background:var(--over)}
@@ -182,11 +182,14 @@
   </div>
 
 <div class="view on" id="v-exec">
+    <!-- 6 การ์ด: แถวบน = ภาพรวมร้าน · แถวล่าง = สรุปงานจัดซื้อ 4 ช่องที่ย้ายมาจาก /purchasing [Owner สั่ง 2026-08-13] -->
     <section class="kpis">
       <div class="kpi"><div class="stripe"></div><div class="lbl">ยอดขายเดือนนี้</div><div class="val tnum" id="e-rev">–</div><div class="foot" id="e-rev-f">–</div></div>
-      <div class="kpi warn"><div class="stripe"></div><div class="lbl">งบสั่งซื้อรอบนี้</div><div class="val tnum" id="e-val">–</div><div class="foot">Lead 7 วัน · รอบสั่งรายเดือน</div></div>
+      <div class="kpi"><div class="stripe"></div><div class="lbl">มูลค่าสต๊อกทั้งหมด</div><div class="val tnum" id="e-stock">–</div><div class="foot" id="e-over-f">–</div></div>
       <div class="kpi dead"><div class="stripe"></div><div class="lbl">เงินจมในสต๊อก</div><div class="val tnum" id="e-dead">–</div><div class="foot" id="e-dead-f">–</div></div>
-      <div class="kpi over"><div class="stripe"></div><div class="lbl">มูลค่าสต๊อกทั้งหมด</div><div class="val tnum" id="e-stock">–</div><div class="foot" id="e-over-f">–</div></div>
+      <div class="kpi warn"><div class="stripe"></div><div class="lbl">ต้องสั่งซื้อ</div><div class="val tnum" id="e-need">–</div><div class="foot" id="e-need-f">–</div></div>
+      <div class="kpi warn"><div class="stripe"></div><div class="lbl">มูลค่าสั่งซื้อ (ต้นทุน)</div><div class="val tnum" id="e-val">–</div><div class="foot" id="e-val-f">–</div></div>
+      <div class="kpi over"><div class="stripe"></div><div class="lbl">สต๊อกบวม</div><div class="val tnum" id="e-over">–</div><div class="foot">ค้างเกิน 120 วันขาย · ดูรายตัวในตารางเร่งระบาย</div></div>
     </section>
     <div class="panel">
       <h3>ยอดขาย <span id="chart-branch">ML3</span> รายเดือน <span>13 เดือนล่าสุด · แท่งสีทอง = เดือนปัจจุบัน (ยังไม่จบเดือน)</span></h3>
@@ -265,11 +268,16 @@ function renderExec(){
     $("e-rev").textContent=kbaht(cur.rev);
     $("e-rev-f").textContent=prev?("เดือนก่อน "+kbaht(prev.rev)):"";
   }
-  $("e-val").textContent=kbaht(D.s.val7);
   $("e-dead").textContent=kbaht(D.s.deadval);
   $("e-dead-f").textContent=D.s.dead.toLocaleString()+" SKU ไม่เคลื่อนไหว · ควรระบาย";
   $("e-stock").textContent=kbaht(D.s.stockTotal||0);
-  $("e-over-f").textContent="ในนั้นสต๊อกบวม "+D.s.over.toLocaleString()+" SKU";
+  $("e-over-f").textContent="ทุนที่อยู่ในคลัง ณ วันนี้";
+  // สรุปงานจัดซื้อ 4 ช่อง (ย้ายมาจาก /purchasing) — โชว์ 3 ระยะรอของซัพในบรรทัดรอง
+  $("e-need").textContent=(D.s.need7||0).toLocaleString()+" รายการ";
+  $("e-need-f").textContent="Lead 7 วัน · 14วัน: "+(D.s.need14||0).toLocaleString()+" · 30วัน: "+(D.s.need30||0).toLocaleString();
+  $("e-val").textContent=kbaht(D.s.val7);
+  $("e-val-f").textContent="Lead 7 วัน · 14วัน: "+kbaht(D.s.val14||0)+" · 30วัน: "+kbaht(D.s.val30||0);
+  $("e-over").textContent=(D.s.over||0).toLocaleString()+" SKU";
   if(t.length){
     const n=t.length,W=Math.max(560,n*46),H=215,P=20,max=Math.max(...t.map(x=>x.rev))||1;
     const slotW=(W-P*2)/n, bw=slotW*0.62;
