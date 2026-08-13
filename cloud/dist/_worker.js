@@ -1000,6 +1000,15 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return env.ASSETS.fetch(new Request(new URL("/executive", url), request));   // clean URL → executive.html
     }
 
+    // สั่งซื้อรายซัพพลายเออร์ — สิทธิ์ทีมจัดซื้อ (สร้างบนคลาวด์ทุก build จาก supplier_order.py)
+    if (execP === "purchasing-order") {
+      const sess = await readSession(request, env);
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/purchasing-order") } });
+      if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);
+      if (!canSee(sess, "purchasing")) return forbidden("purchasing", sess);
+      return env.ASSETS.fetch(new Request(new URL("/purchasing-order", url), request));   // clean URL → purchasing-order.html
+    }
+
     // วัดผลระบายสต๊อกกลุ่ม C — เฉพาะ owner/admin (สร้างบนคลาวด์ทุก build จาก clearance_report.py)
     if (execP === "clearance") {
       const sess = await readSession(request, env);

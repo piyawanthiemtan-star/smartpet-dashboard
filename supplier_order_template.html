@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>สั่งซื้อรายซัพพลายเออร์</title>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:Tahoma,"TH Sarabun New",sans-serif; margin:0; background:#f2f4f7; color:#15243a; font-size:14px; }
+  .wrap { max-width:1100px; margin:0 auto; padding:16px; }
+  h1 { font-size:21px; margin:4px 0 2px; color:#0C223A; }
+  .sub { color:#5a6b80; font-size:13px; margin-bottom:12px; }
+  a.tab { font-size:13px; color:#0C223A; margin-right:10px; }
+  .pick { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .pick select, .pick input { font-family:inherit; font-size:14px; padding:8px 10px; border:1px solid #c9d2dd; border-radius:8px; }
+  .pick select { min-width:320px; max-width:100%; }
+  .vcard { background:#fff; border:1px solid #dfe5ec; border-left:4px solid #C89535; border-radius:10px; padding:10px 14px; margin:8px 0; font-size:13.5px; display:none; }
+  .vcard b { font-size:15px; }
+  .who { display:flex; gap:10px; flex-wrap:wrap; margin:8px 0; }
+  .who label { font-size:12.5px; color:#5a6b80; display:block; margin-bottom:2px; }
+  .who input { font-family:inherit; font-size:13.5px; padding:7px 10px; border:1px solid #c9d2dd; border-radius:8px; width:330px; max-width:100%; }
+  .toolrow { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .toolrow button { font-family:inherit; font-size:13.5px; font-weight:700; padding:8px 16px; border-radius:8px; border:none; cursor:pointer; }
+  .bprint { background:#1a3a5c; color:#fff; } .bcopy { background:#C89535; color:#fff; }
+  .bsel { background:#eef3f7; border:1px solid #c9d2dd !important; font-weight:400 !important; }
+  .bsort { background:#fff; border:1px solid #c9d2dd !important; font-weight:400 !important; }
+  .bsort.on { background:#0C223A; color:#fff; }
+  #msg { font-size:13px; color:#1c7a4a; flex-basis:100%; }
+  table.main { width:100%; border-collapse:collapse; background:#fff; }
+  .main th, .main td { border:1px solid #dfe5ec; padding:4px 8px; }
+  .main thead th { background:#0C223A; color:#fff; font-size:12px; position:sticky; top:0; }
+  td.c { text-align:center; } td.r { text-align:right; }
+  td.bc { font-family:Consolas,monospace; font-size:12px; }
+  td.qty input { width:70px; font-family:inherit; font-size:14px; padding:4px 6px; text-align:center; border:1px solid #c9d2dd; border-radius:6px; }
+  tr.sugg td { background:#fffbe9; }
+  .casechip { display:inline-block; background:#e8f0f8; color:#1a3a5c; border-radius:6px; padding:1px 8px; font-size:12px; font-weight:700; white-space:nowrap; }
+  .tblwrap { overflow-x:auto; max-height:62vh; overflow-y:auto; border:1px solid #dfe5ec; }
+  .total { margin:8px 0; font-weight:700; }
+  .hint { background:#eef3f7; border-radius:8px; padding:8px 12px; font-size:12.5px; margin:8px 0; color:#3a4a5e; }
+  #printArea { display:none; }
+  @media print {
+    body * { visibility:hidden; }
+    #printArea, #printArea * { visibility:visible; }
+    #printArea { display:block; position:absolute; left:0; top:0; width:100%; background:#fff; }
+  }
+  .po { font-size:13px; color:#111; padding:6mm; }
+  .po .cohead { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px double #333; padding-bottom:8px; }
+  .po .coname { font-size:17px; font-weight:800; }
+  .po .cosub { font-size:12.5px; line-height:1.6; }
+  .po .doctitle { text-align:right; }
+  .po .doctitle .t { font-size:20px; font-weight:800; letter-spacing:1px; }
+  .po .doctitle .e { font-size:12px; color:#444; }
+  .po .meta { display:flex; justify-content:space-between; margin:10px 0 4px; line-height:1.7; }
+  .po table { width:100%; border-collapse:collapse; margin-top:8px; }
+  .po th, .po td { border:1px solid #888; padding:3px 6px; font-size:13px; }
+  .po thead th { background:#f0f0f0; }
+  .po .pay { background:#fff8ec; border:1px solid #d9b96a; border-radius:4px; padding:6px 10px; margin-top:10px; font-size:13px; }
+  .po .sign { display:flex; justify-content:space-between; gap:10px; margin-top:40px; text-align:center; }
+  .po .sign div.s { width:31%; }
+  .po .line { border-top:1px dotted #333; margin-top:34px; padding-top:4px; font-size:12.5px; }
+</style></head>
+<body><div class="wrap">
+  <div><a class="tab" href="/purchasing">← แดชบอร์ดจัดซื้อ</a><a class="tab" href="/home">🏠 หน้าหลัก</a></div>
+  <h1>🧾 สั่งซื้อรายซัพพลายเออร์</h1>
+  <div class="sub" id="gen">–</div>
+  <div class="hint">เลือกซัพ → ระบบติ๊กตัวที่ควรสั่งให้ (พื้นเหลือง = แนะนำสั่ง เติมให้พอ <span id="cdays"></span> วัน)
+    · <b>ตัวที่มีป้าย xN = สั่งเต็มลัง/โหลเท่านั้น</b> (จำนวนสั่ง = จำนวนลัง ระบบโชว์ว่าเหลือกี่ชิ้นไว้ตัดสินใจ)
+    → แก้จำนวนได้ → 🖨 พิมพ์ยื่นเซลล์ หรือ 📋 คัดลอกส่ง LINE</div>
+  <div class="pick">
+    <select id="vsel"><option value="">— เลือกซัพพลายเออร์ —</option></select>
+    <input id="q" placeholder="ค้นหาชื่อสินค้า/บาร์โค้ด..." style="flex:1;min-width:200px">
+  </div>
+  <div class="vcard" id="vcard"></div>
+  <div class="who" id="who" style="display:none">
+    <div><label>ผู้สั่งซื้อ (ฝ่ายจัดซื้อ)</label><input id="buyer"></div>
+    <div><label>ผู้อนุมัติ</label><input id="approver"></div>
+  </div>
+  <div class="toolrow" id="tools" style="display:none">
+    <button class="bsel" id="ball">☑ เลือกทั้งหมด</button>
+    <button class="bsel" id="bnone">✖ ล้างที่เลือก</button>
+    <span style="border-left:1px solid #c9d2dd;height:22px"></span>
+    <button class="bprint" id="bprint">🖨 พิมพ์ใบสั่งซื้อ</button>
+    <button class="bcopy" id="bcopy">📋 คัดลอกส่ง LINE</button>
+    <span style="border-left:1px solid #c9d2dd;height:22px"></span>
+    เรียง: <button class="bsort on" data-k="sugg">แนะนำสั่ง</button>
+    <button class="bsort" data-k="s30">ขายดี 30 วัน</button>
+    <button class="bsort" data-k="stock">สต๊อกน้อย</button>
+    <button class="bsort" data-k="name">ชื่อ ก-ฮ</button>
+    <span id="msg"></span>
+  </div>
+  <div class="tblwrap" id="tw" style="display:none"><table class="main"><thead><tr>
+    <th>เลือก</th><th>บาร์โค้ด</th><th>สินค้า</th><th>เหลือ (ชิ้น)</th><th>ขาย 30 วัน</th>
+    <th>เฉลี่ย/วัน</th><th>ทุนซื้อ</th><th>ต่อลัง</th><th>จำนวนสั่ง</th><th>หน่วยสั่ง</th>
+  </tr></thead><tbody id="tb"></tbody></table></div>
+  <p class="total" id="tot"></p>
+  <div id="printArea"></div>
+<script>
+var D = __DATA__;
+var VBY = {}; D.vendors.forEach(function(v){ VBY[v.id] = v; });
+var SORTK = "sugg";
+var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); };
+var pad = function(n){ return (n<10?"0":"")+n; };
+
+document.getElementById("gen").textContent = "ข้อมูลโกดัง ML3 ณ " + D.generatedTh + " · อัปเดตอัตโนมัติทุกรอบระบบ";
+document.getElementById("cdays").textContent = D.coverDays;
+document.getElementById("buyer").value = D.company.buyer;
+document.getElementById("approver").value = D.company.approver;
+
+// dropdown: ซัพที่มีสินค้า (นับให้ดูเลย) + กลุ่มยังไม่ระบุ
+(function(){
+  var cnt = {}; D.items.forEach(function(x){ cnt[x.vid] = (cnt[x.vid]||0)+1; });
+  var sel = document.getElementById("vsel");
+  D.vendors.forEach(function(v){
+    if (!cnt[v.id]) return;
+    var o = document.createElement("option");
+    o.value = v.id; o.textContent = v.name + " (" + cnt[v.id] + " รายการ)";
+    sel.appendChild(o);
+  });
+  var o = document.createElement("option");
+  o.value = "?"; o.textContent = "❓ ยังไม่ระบุซัพพลายเออร์ (" + (cnt[""]||0) + " รายการ)";
+  sel.appendChild(o);
+})();
+
+function orderUnit(x){ return x.mult ? (x.punit + " (x" + x.mult + ")") : (x.unit || "ชิ้น"); }
+
+function curItems(){
+  var vid = document.getElementById("vsel").value;
+  if (!vid) return [];
+  var key = (vid === "?") ? "" : vid;
+  var q = document.getElementById("q").value.trim().toLowerCase();
+  var rows = D.items.filter(function(x){ return x.vid === key; });
+  if (q) rows = rows.filter(function(x){ return (x.name+" "+x.bc).toLowerCase().indexOf(q) >= 0; });
+  rows.sort(function(a,b){
+    if (SORTK === "name") return a.name.localeCompare(b.name, "th");
+    if (SORTK === "stock") return a.stock - b.stock;
+    return (b[SORTK]||0) - (a[SORTK]||0);
+  });
+  return rows;
+}
+
+function render(){
+  var vid = document.getElementById("vsel").value;
+  var vc = document.getElementById("vcard");
+  var show = !!vid;
+  ["tools","tw"].forEach(function(i){ document.getElementById(i).style.display = show ? (i==="tools"?"flex":"block") : "none"; });
+  document.getElementById("who").style.display = show ? "flex" : "none";
+  if (!show) { vc.style.display="none"; document.getElementById("tb").innerHTML=""; document.getElementById("tot").textContent=""; return; }
+  if (vid !== "?" && VBY[vid]) {
+    var v = VBY[vid];
+    vc.innerHTML = "<b>" + esc(v.name) + "</b>"
+      + (v.tel ? " · ☎ " + esc(v.tel) : "")
+      + (v.credit && v.credit !== "0" ? " · เครดิต " + esc(v.credit) + " วัน" : "")
+      + (v.note ? "<br>💳 " + esc(v.note) : "");
+    vc.style.display = "block";
+  } else { vc.style.display = "none"; }
+  var rows = curItems(), h = [];
+  rows.forEach(function(x){
+    h.push('<tr data-bc="' + esc(x.bc) + '"' + (x.sugg > 0 ? ' class="sugg"' : '') + '>'
+      + '<td class="c"><input type="checkbox" class="ck"' + (x.sugg > 0 ? ' checked' : '') + '></td>'
+      + '<td class="bc">' + esc(x.bc) + '</td>'
+      + '<td>' + esc(x.name) + '</td>'
+      + '<td class="c">' + x.stock + '</td><td class="c">' + x.s30 + '</td><td class="c">' + x.avg + '</td>'
+      + '<td class="r">' + (x.cost || "-") + '</td>'
+      + '<td class="c">' + (x.mult ? '<span class="casechip">x' + x.mult + '</span>' : '-') + '</td>'
+      + '<td class="qty c"><input type="number" min="0" step="1" class="qy" value="' + (x.sugg || "") + '"></td>'
+      + '<td class="c">' + esc(orderUnit(x)) + '</td></tr>');
+  });
+  document.getElementById("tb").innerHTML = h.join("");
+  document.getElementById("tot").textContent = "แสดง " + rows.length + " รายการ · ติ๊กแล้ว " + rows.filter(function(x){return x.sugg>0;}).length + " (แก้ได้)";
+}
+
+function setAll(on){
+  document.querySelectorAll("#tb .ck").forEach(function(c){ c.checked = on; });
+  document.getElementById("msg").textContent = on ? "☑ เลือกทั้งหมดแล้ว" : "✖ ล้างการเลือกแล้ว";
+  setTimeout(function(){ document.getElementById("msg").textContent = ""; }, 2500);
+}
+document.getElementById("ball").onclick = function(){ setAll(true); };
+document.getElementById("bnone").onclick = function(){ setAll(false); };
+
+function picked(){
+  var out = [];
+  document.querySelectorAll("#tb tr").forEach(function(tr){
+    if (!tr.querySelector(".ck").checked) return;
+    var qty = parseFloat(tr.querySelector(".qy").value) || 0;
+    if (qty <= 0) return;
+    var bc = tr.dataset.bc;
+    var x = D.items.filter(function(i){ return i.bc === bc; })[0];
+    if (x) out.push({ x: x, qty: qty });
+  });
+  return out;
+}
+
+function vendorOf(){
+  var vid = document.getElementById("vsel").value;
+  return (vid && vid !== "?" && VBY[vid]) ? VBY[vid] : { name: "(ยังไม่ระบุซัพพลายเออร์)", tel: "", note: "", credit: "" };
+}
+function docNo(){
+  var d = new Date();
+  return "PO-ML3-" + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + "-" + pad(d.getHours()) + pad(d.getMinutes());
+}
+
+document.getElementById("bprint").onclick = function(){
+  var rows = picked(), v = vendorOf(), msg = document.getElementById("msg");
+  if (!rows.length) { msg.textContent = "⚠️ ยังไม่มีรายการที่ติ๊ก+ใส่จำนวน"; return; }
+  msg.textContent = "";
+  var buyer = document.getElementById("buyer").value.trim();
+  var approver = document.getElementById("approver").value.trim();
+  var today = new Date().toLocaleDateString("th-TH", { day:"numeric", month:"long", year:"numeric" });
+  var h = ['<div class="po">',
+    '<div class="cohead"><div><div class="coname">' + esc(D.company.name) + '</div>',
+    '<div class="cosub">' + esc(D.company.branch) + '</div></div>',
+    '<div class="doctitle"><div class="t">ใบสั่งซื้อ</div><div class="e">PURCHASE ORDER</div></div></div>',
+    '<div class="meta"><div>ผู้ขาย (ซัพพลายเออร์): <b>' + esc(v.name) + '</b>' + (v.tel ? '<br>☎ ' + esc(v.tel) : '') +
+      (v.credit && v.credit !== "0" ? '<br>เงื่อนไขเครดิต: ' + esc(v.credit) + ' วัน' : '') + '</div>',
+    '<div style="text-align:right">เลขที่เอกสาร: <b>' + docNo() + '</b><br>วันที่สั่งซื้อ: ' + today + '</div></div>',
+    '<table><thead><tr><th>ลำดับ</th><th>บาร์โค้ด</th><th>ชื่อสินค้า</th><th>จำนวน</th><th>หน่วย</th></tr></thead><tbody>'];
+  rows.forEach(function(r, i){
+    h.push('<tr><td style="text-align:center">' + (i+1) + '</td>'
+      + '<td style="font-family:monospace;font-size:12px">' + esc(r.x.bc) + '</td>'
+      + '<td>' + esc(r.x.name) + '</td>'
+      + '<td style="text-align:center;font-weight:700">' + r.qty + '</td>'
+      + '<td style="text-align:center">' + esc(orderUnit(r.x)) + '</td></tr>');
+  });
+  h.push('</tbody></table><p style="font-weight:700">รวมทั้งสิ้น ' + rows.length + ' รายการ</p>');
+  if (v.note) h.push('<div class="pay">💳 เงื่อนไขชำระ/บัญชีโอน: ' + esc(v.note) + '</div>');
+  h.push('<div class="sign">',
+    '<div class="s"><div class="line">ผู้สั่งซื้อ (ฝ่ายจัดซื้อ)<br>' + esc(buyer) + '</div></div>',
+    '<div class="s"><div class="line">ผู้อนุมัติ<br>' + esc(approver) + '</div></div>',
+    '<div class="s"><div class="line">ผู้รับคำสั่งซื้อ (เซลล์)</div></div>',
+    '</div></div>');
+  document.getElementById("printArea").innerHTML = h.join("");
+  window.print();
+};
+
+document.getElementById("bcopy").onclick = function(){
+  var rows = picked(), v = vendorOf(), msg = document.getElementById("msg");
+  if (!rows.length) { msg.textContent = "⚠️ ยังไม่มีรายการที่ติ๊ก+ใส่จำนวน"; return; }
+  var buyer = document.getElementById("buyer").value.trim();
+  var today = new Date().toLocaleDateString("th-TH", { day:"numeric", month:"short", year:"numeric" });
+  var t = ["📦 ใบสั่งซื้อ " + docNo(), D.company.name + " (" + D.company.branch + ")", "ถึง: " + v.name, "วันที่: " + today, ""];
+  rows.forEach(function(r, i){ t.push((i+1) + ". [" + r.x.bc + "] " + r.x.name + "  ×" + r.qty + " " + orderUnit(r.x)); });
+  t.push("", "รวม " + rows.length + " รายการ", "ผู้สั่งซื้อ: " + buyer);
+  navigator.clipboard.writeText(t.join("\n")).then(function(){
+    msg.textContent = "✅ คัดลอกแล้ว " + rows.length + " รายการ — ไปวางใน LINE ได้เลย";
+    setTimeout(function(){ msg.textContent = ""; }, 4000);
+  }).catch(function(){
+    msg.textContent = "⚠️ เบราว์เซอร์ไม่ให้คัดลอกอัตโนมัติ — ใช้ปุ่มพิมพ์แทน หรือลากเลือกข้อความเอง";
+  });
+};
+
+document.getElementById("vsel").onchange = render;
+document.getElementById("q").oninput = render;
+document.querySelectorAll(".bsort").forEach(function(b){
+  b.onclick = function(){
+    document.querySelectorAll(".bsort").forEach(function(x){ x.classList.remove("on"); });
+    b.classList.add("on"); SORTK = b.dataset.k; render();
+  };
+});
+</script>
+</div></body></html>

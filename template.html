@@ -173,12 +173,13 @@
     <div class="leadtog">
       <div class="seg" id="branchseg" style="display:none"><button data-b="ML3">ML3 โกดัง</button><button data-b="ML2">ML2 ร้าน</button></div>
       <div class="seg" id="leadseg"><button data-l="7" class="on">Supplier 5–7 วัน</button><button data-l="14">Supplier 7–14 วัน</button><button data-l="30">Supplier 14–30 วัน</button></div>
+      <a class="homebtn" id="orderbtn" href="/purchasing-order" title="เลือกซัพ → พิมพ์/คัดลอกใบสั่งซื้อส่งเซลล์">🧾 สั่งซื้อรายซัพ</a>
       <a class="homebtn" id="masterbtn" href="/purchasing/master" title="โหลด/อัปไฟล์ Master ตัวคูณ">⬆️ อัปเดต Master</a>
       <a class="homebtn" id="homebtn" href="/home" title="กลับหน้าหลัก">🏠 หน้าหลัก</a>
     </div>
   </header>
   <script>/* ปุ่มหน้าหลัก/อัปเดต Master: แสดงเฉพาะตอนเปิดผ่านเว็บ (พอร์ทัล) ไม่ใช่เปิดเป็นไฟล์ local */
-    if(location.protocol==='http:'||location.protocol==='https:'){['homebtn','masterbtn'].forEach(function(i){var _b=document.getElementById(i);if(_b)_b.style.display='inline-flex';});}</script>
+    if(location.protocol==='http:'||location.protocol==='https:'){['homebtn','masterbtn','orderbtn'].forEach(function(i){var _b=document.getElementById(i);if(_b)_b.style.display='inline-flex';});}</script>
 
   <div class="tabs">
     <button data-v="buy" class="on">📋 รายการสั่งซื้อ</button>
