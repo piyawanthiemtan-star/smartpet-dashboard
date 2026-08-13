@@ -20,8 +20,10 @@ import glob
 import json
 import math
 import os
+import re
 import sqlite3
 import sys
+from collections import Counter, defaultdict
 
 sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -114,13 +116,14 @@ def main():
     # --- ยอดขาย 30/90 วัน: รวม 2 สาขา (ML3 + ML2) [Owner สั่ง 2026-08-13] ---
     # ดีมานด์จริงของการสั่งซื้อเข้าโกดัง = ขายส่งที่ ML3 + ขายปลีกที่ ML2 (ไม่นับโอนระหว่างสาขา จึงไม่ซ้ำ)
     sold30, sold90 = {}, {}
+    stock_ml2 = {}   # สต๊อกคงเหลือฝั่งหน้าร้าน [Owner เคาะ 2026-08-13: โชว์ ML3/ML2/รวม]
     sale_dbs = [("ML3", con)]
     ml2_db = newest_db(ML2_DIR)
     if ml2_db:
         sale_dbs.append(("ML2", sqlite3.connect(f"file:{ml2_db}?mode=ro", uri=True)))
-        print("รวมยอดขาย ML2 จาก:", os.path.basename(ml2_db))
+        print("รวมยอดขาย+สต๊อก ML2 จาก:", os.path.basename(ml2_db))
     else:
-        print("!! ไม่พบ backup ML2 — ยอดขายเป็นของ ML3 สาขาเดียว")
+        print("!! ไม่พบ backup ML2 — ยอดขาย/สต๊อกเป็นของ ML3 สาขาเดียว")
     for _br, c in sale_dbs:
         for days, box in ((30, sold30), (90, sold90)):
             for bc, q in c.execute(f"""
@@ -131,41 +134,88 @@ def main():
                 k = str(bc).strip()
                 box[k] = box.get(k, 0) + (q or 0)
     if ml2_db:
+        for bc, q in sale_dbs[1][1].execute(
+                "SELECT Barcode, Qty FROM Product WHERE IsDelete=0"):
+            if bc is not None:
+                stock_ml2[str(bc).strip()] = q or 0
         sale_dbs[1][1].close()
 
     # --- ตัวคูณจาก Master: ตัวไหนต้องสั่งเต็มลัง/โหลเท่านั้น ---
     mults = load_master_mult(MASTER)
     print(f"ตัวคูณจาก Master: {len(mults):,} บาร์โค้ด")
 
-    # --- สินค้า (เอาเฉพาะตัวที่มีความเคลื่อนไหว: มีสต๊อก หรือขายใน 90 วัน) ---
-    # สต๊อกคงเหลือ = ของ ML3 (โกดัง — คลังที่สั่งซื้อเข้า) [Owner ยืนยัน 2026-08-13]
-    items = []
-    for bc, name, qty, cost, unit, cat in con.execute("""
+    # --- อ่านสินค้าทั้งหมดก่อน (ใช้สร้างชั้นเดาซัพจากประเภท/แบรนด์) ---
+    raw = [(str(r[0]).strip(), r[1] or "", r[2] or 0, r[3] or 0, r[4] or "", r[5] or "-")
+           for r in con.execute("""
         SELECT p.Barcode, p.Name, p.Qty, p.Cost, COALESCE(u.Name,''), COALESCE(c.Name,'-')
         FROM Product p LEFT JOIN ProductUnit u ON u.Id = p.Unit
         LEFT JOIN ProductCategory c ON c.Id = p.Category
-        WHERE p.IsDelete=0"""):
-        bc = str(bc).strip()
-        stock = qty or 0
+        WHERE p.IsDelete=0""")]
+
+    # --- ชั้นเดาซัพ [Owner เคาะ 2026-08-13: "จับจากรหัสประเภทได้เลย ไม่ต้องรอ"] ---
+    # ของ 2,206 ตัวไม่เคยถูกบันทึกซัพ (ทีมรับผ่านเครื่องไม่เลือกบริษัท) จึงเดาจาก:
+    #  1) ประเภทสินค้า: สินค้าประเภทเดียวกันที่ผูกแล้ว >=80% ชี้เจ้าเดียว (ตย.>=2) -> ทั้งประเภทเจ้านั้น
+    #  2) แบรนด์ (คำแรกของชื่อ): เกณฑ์เดียวกัน (ตย.>=3) — ตัวเสริมเมื่อประเภทไม่มีเบาะแส
+    def brand_key(nm):
+        s = re.sub(r"^[\(\)\[\]0-9A-Z\-\.]{0,8}\s*", "", str(nm or "").strip()).strip("()[] ")
+        tok = re.split(r"[\s/]+", s)
+        return (tok[0] if tok and tok[0] else str(nm or "").split(" ")[0]).lower()
+
+    cat_v, brand_v = defaultdict(Counter), defaultdict(Counter)
+    for bc, nm, _q, _c, _u, cat in raw:
+        v = vmap.get(bc)
+        if not v:
+            continue
+        if cat != "-":
+            cat_v[cat][v] += 1
+        brand_v[brand_key(nm)][v] += 1
+
+    def dominant(counter, n_min):
+        top, n = counter.most_common(1)[0]
+        return top if (n >= n_min and n / sum(counter.values()) >= 0.8) else ""
+
+    cat_guess = {c: dominant(cnt, 2) for c, cnt in cat_v.items()}
+    brand_guess = {b: dominant(cnt, 3) for b, cnt in brand_v.items()}
+    n_by_cat = n_by_brand = 0
+
+    # --- สินค้า (เอาเฉพาะตัวที่มีความเคลื่อนไหว: มีสต๊อก หรือขายใน 90 วัน) ---
+    # สต๊อกคงเหลือ = ของ ML3 (โกดัง — คลังที่สั่งซื้อเข้า) [Owner ยืนยัน 2026-08-13]
+    items = []
+    for bc, name, qty, cost, unit, cat in raw:
+        st3 = qty or 0
+        st2 = stock_ml2.get(bc, 0)
         s30 = sold30.get(bc, 0)
         s90 = sold90.get(bc, 0)
-        if stock <= 0 and s90 <= 0:
+        if st3 <= 0 and st2 <= 0 and s90 <= 0:
             continue
         avg = s30 / 30.0
-        need_units = max(0, math.ceil(avg * COVER_DAYS - stock))
+        total = st3 + st2
+        # แนะนำสั่ง = หักสต๊อกรวม 2 สาขา (สมมาตรกับดีมานด์รวม — กันสั่งเกินเพราะของกองที่ ML2)
+        need_units = max(0, math.ceil(avg * COVER_DAYS - total))
         mult, punit = mults.get(bc, (0, ""))
         # มีตัวคูณ -> สั่งเต็มลังเท่านั้น: แนะนำเป็นจำนวนลังปัดขึ้น [Owner เคาะ 2026-08-13]
         sugg = math.ceil(need_units / mult) if (mult and need_units > 0) else need_units
+        vid = vmap.get(bc, "")
+        if not vid:
+            vid = cat_guess.get((cat or "-").strip(), "")
+            if vid:
+                n_by_cat += 1
+            else:
+                vid = brand_guess.get(brand_key(name), "")
+                if vid:
+                    n_by_brand += 1
         items.append({
             "bc": bc, "name": (name or "").strip(), "unit": (unit or "").strip(),
-            "cat": (cat or "-").strip(), "vid": vmap.get(bc, ""), "stock": round(stock, 1),
-            "s30": round(s30, 1), "avg": round(avg, 2),
+            "cat": (cat or "-").strip(), "vid": vid,
+            "st3": round(st3, 1), "st2": round(st2, 1), "tot": round(total, 1),
+            "s30": round(s30, 1),
             "cost": round(cost or 0, 2), "sugg": sugg,
             "mult": mult, "punit": punit,
         })
     n_mapped = sum(1 for x in items if x["vid"])
-    print(f"สินค้าในหน้า: {len(items):,} (โยงซัพแล้ว {n_mapped:,} · ยังไม่ระบุ {len(items)-n_mapped:,} "
-          f"· มีตัวคูณ {sum(1 for x in items if x['mult']):,})")
+    print(f"สินค้าในหน้า: {len(items):,} (โยงซัพแล้ว {n_mapped:,} "
+          f"[เดาจากประเภท {n_by_cat:,} · จากแบรนด์ {n_by_brand:,}] "
+          f"· ยังไม่ระบุ {len(items)-n_mapped:,} · มีตัวคูณ {sum(1 for x in items if x['mult']):,})")
 
     data = {
         "generatedTh": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
