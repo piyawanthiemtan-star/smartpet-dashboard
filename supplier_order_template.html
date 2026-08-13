@@ -70,6 +70,12 @@
     <select id="csel" style="min-width:180px"><option value="">ทุกประเภทสินค้า</option></select>
     <input id="q" placeholder="ค้นหาชื่อสินค้า/บาร์โค้ด..." style="flex:1;min-width:200px">
   </div>
+  <div class="toolrow">
+    ระยะรอของซัพ (สั่งเผื่อกี่วัน):
+    <button class="bsort" data-d="7">Supplier 5–7 วัน</button>
+    <button class="bsort on" data-d="14">Supplier 7–14 วัน</button>
+    <button class="bsort" data-d="30">Supplier 14–30 วัน</button>
+  </div>
   <div class="vcard" id="vcard"></div>
   <div class="who" id="who" style="display:none">
     <div><label>ผู้สั่งซื้อ (ฝ่ายจัดซื้อ)</label><input id="buyer"></div>
@@ -99,6 +105,12 @@
 var D = __DATA__;
 var VBY = {}; D.vendors.forEach(function(v){ VBY[v.id] = v; });
 var SORTK = "sugg";
+var COVER = 14;   // ระยะรอของซัพ (วันที่สั่งเผื่อ) — ปุ่ม 5-7/7-14/14-30 เปลี่ยนค่านี้ [Owner เคาะ]
+function suggOf(x){
+  var need = Math.max(0, Math.ceil((x.s30/30)*COVER - x.tot));
+  if (x.mult && need > 0) return Math.ceil(need / x.mult);   // มีตัวคูณ -> จำนวนลังปัดขึ้น
+  return need;
+}
 var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); };
 var pad = function(n){ return (n<10?"0":"")+n; };
 
@@ -153,6 +165,7 @@ function curItems(){
   rows.sort(function(a,b){
     if (SORTK === "name") return a.name.localeCompare(b.name, "th");
     if (SORTK === "stock") return a.tot - b.tot;   // สต๊อกน้อย = รวม 2 สาขาน้อยสุดก่อน
+    if (SORTK === "sugg") return suggOf(b) - suggOf(a);
     return (b[SORTK]||0) - (a[SORTK]||0);
   });
   return rows;
@@ -175,8 +188,9 @@ function render(){
   } else { vc.style.display = "none"; }
   var rows = curItems(), h = [];
   rows.forEach(function(x){
-    h.push('<tr data-bc="' + esc(x.bc) + '"' + (x.sugg > 0 ? ' class="sugg"' : '') + '>'
-      + '<td class="c"><input type="checkbox" class="ck"' + (x.sugg > 0 ? ' checked' : '') + '></td>'
+    var sg = suggOf(x);
+    h.push('<tr data-bc="' + esc(x.bc) + '"' + (sg > 0 ? ' class="sugg"' : '') + '>'
+      + '<td class="c"><input type="checkbox" class="ck"' + (sg > 0 ? ' checked' : '') + '></td>'
       + '<td class="bc">' + esc(x.bc) + '</td>'
       + '<td>' + esc(x.name) + '</td>'
       + '<td style="font-size:12px" title="' + esc(x.cat) + '">' + esc((x.cat || "-").split(" ")[0]) + '</td>'
@@ -184,11 +198,11 @@ function render(){
       + '<td class="c" style="font-weight:700">' + x.tot + '</td><td class="c">' + x.s30 + '</td>'
       + '<td class="r">' + (x.cost || "-") + '</td>'
       + '<td class="c">' + (x.mult ? '<span class="casechip">x' + x.mult + '</span>' : '-') + '</td>'
-      + '<td class="qty c"><input type="number" min="0" step="1" class="qy" value="' + (x.sugg || "") + '"></td>'
+      + '<td class="qty c"><input type="number" min="0" step="1" class="qy" value="' + (sg || "") + '"></td>'
       + '<td class="c">' + esc(orderUnit(x)) + '</td></tr>');
   });
   document.getElementById("tb").innerHTML = h.join("");
-  document.getElementById("tot").textContent = "แสดง " + rows.length + " รายการ · ติ๊กแล้ว " + rows.filter(function(x){return x.sugg>0;}).length + " (แก้ได้)";
+  document.getElementById("tot").textContent = "แสดง " + rows.length + " รายการ · ติ๊กแล้ว " + rows.filter(function(x){return suggOf(x)>0;}).length + " (สั่งเผื่อ " + COVER + " วัน · แก้ได้)";
 }
 
 function setAll(on){
@@ -273,10 +287,19 @@ document.getElementById("bcopy").onclick = function(){
 document.getElementById("vsel").onchange = function(){ fillCats(); render(); };
 document.getElementById("csel").onchange = render;
 document.getElementById("q").oninput = render;
-document.querySelectorAll(".bsort").forEach(function(b){
+document.querySelectorAll(".bsort[data-k]").forEach(function(b){
   b.onclick = function(){
-    document.querySelectorAll(".bsort").forEach(function(x){ x.classList.remove("on"); });
+    document.querySelectorAll(".bsort[data-k]").forEach(function(x){ x.classList.remove("on"); });
     b.classList.add("on"); SORTK = b.dataset.k; render();
+  };
+});
+// ปุ่มระยะรอของซัพ: เปลี่ยนจำนวนวันสั่งเผื่อ -> คำนวณแนะนำสั่ง+ติ๊กใหม่ทั้งตาราง
+document.querySelectorAll(".bsort[data-d]").forEach(function(b){
+  b.onclick = function(){
+    document.querySelectorAll(".bsort[data-d]").forEach(function(x){ x.classList.remove("on"); });
+    b.classList.add("on"); COVER = parseInt(b.dataset.d, 10);
+    document.getElementById("cdays").textContent = COVER;
+    render();
   };
 });
 </script>
