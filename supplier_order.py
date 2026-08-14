@@ -35,6 +35,7 @@ TPL = os.environ.get("SUP_TPL", os.path.join(HERE, "supplier_order_template.html
 OUT = os.environ.get("SUP_OUT", os.path.join(HERE, "output", "purchasing-order.html"))
 MASTER = os.environ.get("SUP_MASTER", os.path.join(HERE, "Master_Multiplier.xlsx"))
 VMAP_MANUAL = os.environ.get("SUP_VMAP", os.path.join(HERE, "vendor_map_manual.csv"))
+VENDOR_INFO = os.environ.get("SUP_VINFO", os.path.join(HERE, "vendor_info.csv"))
 
 BKK = datetime.timezone(datetime.timedelta(hours=7))   # ตรึง +07:00 — GitHub runner เป็น UTC (บทเรียน 29 ก.ค.)
 COVER_DAYS = 14   # แนะนำสั่ง = เติมให้พอกี่วัน (เบียร์แก้จำนวนเองได้อยู่แล้ว)
@@ -91,6 +92,29 @@ def load_manual_map(path):
     return out
 
 
+def norm_vendor_name(s):
+    """ชื่อบริษัทแบบเทียบได้: ตัดคำนำหน้า/ต่อท้ายนิติบุคคล + วรรค + จุด (ไว้จับคู่ตอนไม่มีเลขผู้เสียภาษี)"""
+    s = str(s or "").strip().lower()
+    for w in ("ห้างหุ้นส่วนจำกัด", "หจก.", "บริษัท", "บจก.", "บ.", "(สำนักงานใหญ่)", "(มหาชน)", "จำกัด"):
+        s = s.replace(w, "")
+    return re.sub(r"[\s\.]+", "", s)
+
+
+def load_vendor_info(path):
+    """vendor_info.csv — ข้อมูลซัพจากบัญชี (Owner ส่ง 14 ส.ค. 2569):
+    เลขผู้เสียภาษี (=Vendor.Id ใน POS) · หมวดสินค้า · โทร/แฟกซ์ · ธนาคาร+เลขบัญชีโอน · เงื่อนไขชำระ"""
+    rows = []
+    if not os.path.exists(path):
+        return rows
+    import csv
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        for r in csv.DictReader(f):
+            r = {k: (v or "").strip() for k, v in r.items()}
+            if r.get("name"):
+                rows.append(r)
+    return rows
+
+
 def newest_db(folder):
     fs = glob.glob(os.path.join(folder, "*.db"))
     return max(fs, key=os.path.getmtime) if fs else None
@@ -120,9 +144,40 @@ def main():
         vendors[str(vid).strip()] = {
             "id": str(vid).strip(), "name": (name or "").strip(),
             "tel": (tel or "").strip(), "note": (remarks or "").strip(),
-            "credit": str(credit or "").strip(),
+            "credit": str(credit or "").strip(), "vcat": "",
         }
     print(f"ซัพพลายเออร์: {len(vendors)} เจ้า")
+
+    # --- เติมข้อมูลจากบัญชี (vendor_info.csv): บัญชีโอน/เครดิตเทอม/โทร/หมวด ---
+    # จับคู่ด้วยเลขผู้เสียภาษี (= Vendor.Id ใน POS) ก่อน · ไม่มีเลขค่อยเทียบชื่อแบบตัดคำนิติบุคคล
+    info_rows = load_vendor_info(VENDOR_INFO)
+    by_tax = {r["tax_id"]: r for r in info_rows if r.get("tax_id")}
+    by_name = {norm_vendor_name(r["name"]): r for r in info_rows}
+    matched_info = set()
+    for v in vendors.values():
+        r = by_tax.get(v["id"]) or by_name.get(norm_vendor_name(v["name"]))
+        if not r:
+            continue
+        matched_info.add(id(r))
+        if not v["tel"] and r.get("tel"):
+            v["tel"] = r["tel"]
+        v["vcat"] = r.get("category", "")
+        pay = []
+        m = re.search(r"เครดิต\s*(\d+)", r.get("terms", ""))
+        if m:
+            if not v["credit"] or v["credit"] == "0":
+                v["credit"] = m.group(1)
+        elif r.get("terms"):
+            pay.append("ชำระ" + r["terms"])          # เงินสด / คิวอาร์โค้ด
+        if r.get("bank") and r.get("account"):
+            acct_digits = re.sub(r"\D", "", r["account"])
+            if acct_digits and acct_digits not in re.sub(r"\D", "", v["note"]):
+                pay.append("โอน " + r["bank"] + " " + r["account"])
+        if pay:
+            v["note"] = (v["note"] + " · " if v["note"] else "") + " · ".join(pay)
+    unmatched = [r["name"] for r in info_rows if id(r) not in matched_info]
+    print(f"ข้อมูลบัญชีซัพ: จับคู่ได้ {len(matched_info)}/{len(info_rows)}"
+          + (f" · จับคู่ไม่ได้: {', '.join(unmatched)}" if unmatched else ""))
 
     # --- แผนที่ สินค้า -> ซัพ (ประวัติรับของล่าสุดชนะ · PO เดิมเป็นตัวเสริม) ---
     vmap = {}   # bc -> vendor id

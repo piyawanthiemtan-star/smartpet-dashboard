@@ -216,6 +216,7 @@ function render(){
     vc.innerHTML = "<b>" + esc(v.name) + "</b>"
       + (v.tel ? " · ☎ " + esc(v.tel) : "")
       + (v.credit && v.credit !== "0" ? " · เครดิต " + esc(v.credit) + " วัน" : "")
+      + (v.vcat ? " · 🏷 " + esc(v.vcat) : "")
       + (v.note ? "<br>💳 " + esc(v.note) : "");
     vc.style.display = "block";
   } else { vc.style.display = "none"; }
