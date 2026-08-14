@@ -11,7 +11,7 @@ on:
     - cron: '0 */2 * * *'     # ทุก 2 ชม. (UTC) — สำรอง
 
 permissions:
-  contents: read
+  contents: write   # อัปเดต release "last-good" (คลังสำรอง backup ตัวดีล่าสุดต่อสาขา)
 
 concurrency:
   group: deploy-dashboard
@@ -55,6 +55,37 @@ jobs:
             if [ "$(python /tmp/validate_db.py "$f")" != "ok" ]; then
               echo "::warning::ตัดไฟล์ backup ใช้ไม่ได้ (ไม่มีข้อมูลขาย): $f ($(stat -c%s "$f") bytes)"
               rm -f "$f"
+            fi
+          done
+          ls -la backup/
+
+      - name: Last-good backups (สาขาไหนหาย → ใช้ตัวดีล่าสุดแทน · ระบบไม่หยุดเพราะสาขาเดียวล่ม)
+        # เหตุ 14 ส.ค. 2569: ML3 ส่งไฟล์เสียแล้ว agent ลบตัวดีทิ้งจาก release → ทั้งระบบถอย 14 วัน
+        # พนักงานทำงานต่อไม่ได้ [Owner สั่ง: ระบบต้องไม่หยุด] — คลังนี้เก็บตัวดีล่าสุดต่อสาขาไว้เสมอ
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view last-good --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create last-good --repo "$GITHUB_REPOSITORY" --title "Last good backups" \
+              --notes "คลังสำรอง backup ตัวดีล่าสุดต่อสาขา — ระบบเติม/หมุนเวียนเองทุก build" --latest=false
+          # 1) เติมสาขาที่หาย: ดึงตัวดีล่าสุดจากคลังสำรองมาใช้ (ข้อมูลเก่ากว่าปกติแต่ทีมทำงานต่อได้
+          #    — ความสดจริงดูจาก MAX(Orders.Create) ในไฟล์ หัวรายงานขึ้นเตือนเองอยู่แล้ว)
+          for br in ML3 ML2; do
+            if ! ls backup/${br}-Backup-*.db >/dev/null 2>&1; then
+              echo "::warning::ไม่มี backup ${br} ที่ใช้ได้รอบนี้ — ใช้ตัวดีล่าสุดจากคลังสำรองแทน"
+              gh release download last-good --repo "$GITHUB_REPOSITORY" --pattern "${br}-Backup-*.db" --dir backup || true
+            fi
+          done
+          # 2) เก็บตัวดีของรอบนี้เข้าคลังสำรอง (สาขาละ 1 ไฟล์ อัปเฉพาะตอนมีไฟล์ใหม่ แล้วลบตัวเก่าทิ้ง)
+          for br in ML3 ML2; do
+            f=$(ls -t backup/${br}-Backup-*.db 2>/dev/null | head -1)
+            [ -z "$f" ] && continue
+            name=$(basename "$f")
+            if ! gh release view last-good --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -qx "$name"; then
+              gh release upload last-good "$f" --repo "$GITHUB_REPOSITORY" --clobber
+              for a in $(gh release view last-good --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep "^${br}-Backup-" | grep -vx "$name"); do
+                gh release delete-asset last-good "$a" --repo "$GITHUB_REPOSITORY" -y
+              done
             fi
           done
           ls -la backup/
