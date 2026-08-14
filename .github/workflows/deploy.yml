@@ -39,6 +39,26 @@ jobs:
           mkdir -p backup
           gh release download latest --repo "$GITHUB_REPOSITORY" --pattern "*.db" --dir backup --clobber
 
+      - name: Validate backups (ตัดไฟล์ .db ปลอม/เปล่าทิ้งก่อนใช้)
+        # POS ML3 เคยปล่อยไฟล์ .db ขนาด ~1.5MB ที่ไม่มีตาราง Orders ออกมา (2 ส.ค. + 14 ส.ค. 2569)
+        # agent เก็บผิดตัวแล้วลบ backup ดีทิ้ง → แดชบอร์ดถอยไป 14 วัน + ใบเบิกว่าง — กรองที่นี่กันซ้ำ
+        run: |
+          cat > /tmp/validate_db.py <<'PYEOF'
+          import sqlite3, sys
+          try:
+              con = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
+              print("ok" if con.execute("SELECT COUNT(*) FROM Orders").fetchone()[0] > 0 else "bad")
+          except Exception:
+              print("bad")
+          PYEOF
+          for f in backup/*.db; do
+            if [ "$(python /tmp/validate_db.py "$f")" != "ok" ]; then
+              echo "::warning::ตัดไฟล์ backup ใช้ไม่ได้ (ไม่มีข้อมูลขาย): $f ($(stat -c%s "$f") bytes)"
+              rm -f "$f"
+            fi
+          done
+          ls -la backup/
+
       - name: Generate dashboard
         env:
           SMARTPET_BACKUP_DIR: backup
