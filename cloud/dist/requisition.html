@@ -1,218 +1,28 @@
 <!doctype html>
 <html lang="th"><head><meta charset="utf-8">
-<title>GRFML2-20260809-002</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ใบเบิกสินค้า — รอข้อมูล</title>
+<!-- หน้านี้คือ fallback ใน repo: จะโชว์เฉพาะตอนที่ build สร้างใบเบิกไม่ได้ (backup ไม่ครบ/ใช้ไม่ได้)
+     build ปกติจะเขียนใบเบิกจริงทับไฟล์นี้ใน workspace ก่อน deploy เสมอ — ห้ามใส่ข้อมูลใบเบิกจริงที่นี่
+     (เดิมไฟล์นี้เป็นใบเบิกเก่าตกค้างก่อนมีปุ่มเลือกวันที่ ทำทีมงงว่าฟีเจอร์หาย — เหตุ 14 ส.ค. 2569) -->
 <style>
-  /* บังคับกระดาษ A4 + ระยะขอบ; เนื้อหาเกินจะไหลไปหน้า 2-3-4 อัตโนมัติ */
-  @page { size: A4 portrait; margin: 12mm 10mm 14mm 10mm; }
-  * { box-sizing: border-box; }
-  body { font-family: "Tahoma","TH Sarabun New",sans-serif; color:#111; margin:0; font-size:13px; }
-  h1 { text-align:center; font-size:20px; margin:0 0 4px; }
-  .meta { display:flex; justify-content:space-between; margin:8px 0 4px; }
-  .meta div { line-height:1.7; }
-  .docno { font-weight:bold; }
-  table { width:100%; border-collapse:collapse; margin-top:10px; }
-  th, td { border:1px solid #888; padding:3px 6px; }
-  thead th { background:#f0f0f0; font-size:12px; }
-  td.c { text-align:center; }
-  td.b { font-weight:bold; }
-  tr.hclass td { background:#d9e6f2; font-weight:bold; font-size:14px; }
-  tr.hcat td { background:#eef3f7; font-weight:bold; padding-left:16px; }
-  .total { margin-top:8px; font-weight:bold; }
-  .sign { display:flex; justify-content:space-around; margin-top:40px; text-align:center; }
-  .sign div { width:30%; }
-  .line { border-top:1px dotted #333; margin-top:36px; padding-top:4px; }
-
-  /* มุมมองบนจอ: ทำให้ดูเหมือนแผ่น A4 */
-  @media screen {
-    body { background:#e9e9e9; }
-    .sheet { width:210mm; min-height:297mm; margin:10px auto; padding:12mm 10mm 14mm;
-             background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.25); }
-  }
-
-  /* ตอนพิมพ์: หัวตารางซ้ำทุกหน้า + ไม่ตัดแถว/หัวข้อ/ช่องเซ็นขาดครึ่ง */
-  @media print {
-    .sheet { width:auto; margin:0; padding:0; box-shadow:none; }
-    thead { display:table-header-group; }
-    tr { page-break-inside:avoid; break-inside:avoid; }
-    tr.hclass, tr.hcat { page-break-after:avoid; break-after:avoid; }
-    .sign { page-break-inside:avoid; break-inside:avoid; }
-  }
+  body { font-family:Tahoma,"TH Sarabun New",sans-serif; margin:0; background:#0C223A; color:#15243a;
+         display:flex; min-height:100vh; align-items:center; justify-content:center; }
+  .card { background:#fff; border-radius:14px; padding:36px 42px; max-width:560px; margin:20px;
+          border-top:6px solid #C89535; box-shadow:0 10px 40px rgba(0,0,0,.35); }
+  h1 { font-size:22px; color:#0C223A; margin:0 0 6px; }
+  p { font-size:15px; line-height:1.7; color:#3a4a5e; margin:10px 0; }
+  .why { background:#fff8ec; border:1px solid #d9b96a; border-radius:8px; padding:10px 14px; font-size:13.5px; }
+  a.btn { display:inline-block; margin:14px 10px 0 0; padding:9px 18px; border-radius:8px; font-size:14px;
+          text-decoration:none; font-weight:700; background:#1a3a5c; color:#fff; }
+  a.btn.gold { background:#C89535; }
 </style></head>
-<body>
-  <div class="sheet">
-  <h1>เอกสารใบเบิกสินค้า</h1>
-  <div class="meta">
-    <div>สาขา: <b>ML2</b><br>วันที่ขาย: <b>09/08/2026</b></div>
-    <div style="text-align:right">เลขที่: <span class="docno">GRFML2-20260809-002</span><br>พิมพ์เมื่อ: 11/08/2026 10:11</div>
-  </div>
-  <table>
-    <thead><tr>
-      <th>ลำดับ</th><th>บาร์โค้ด</th><th>สินค้า</th>
-      <th>ขายวันนี้</th><th>คงเหลือ</th><th>จำนวนเบิก</th><th>หน่วย</th><th>ต่อแพ็ค</th><th>ML3 มี</th>
-    </tr></thead>
-    <tbody>
-<tr class='hclass'><td colspan='9'>คลาส A — ขายดีทำเงินหลัก</td></tr>
-<tr class='hcat'><td colspan='9'>909 อาหารกระต่าย King Rabbit</td></tr>
-<tr><td class='c'>1</td><td>992026012100</td><td>หญ้าออชาร์ดใบนุ่ม 500g 95.-</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>11</td></tr>
-<tr class='hcat'><td colspan='9'>A109 ASIAN PET อ.สุนัข แมว</td></tr>
-<tr><td class='c'>2</td><td>8858740801164-1</td><td>(1) PRO CAT แซลมอน 750g</td><td class='c'>1</td><td class='c'>36</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>52</td></tr>
-<tr class='hcat'><td colspan='9'>B206 BETAGO บ.เพ็ทโฟกัส อ.สุนัข อ.แมว</td></tr>
-<tr><td class='c'>3</td><td>8859104010956-1</td><td>GOODBOY อ.แมวโต ปลาทู 600g</td><td class='c'>1</td><td class='c'>10</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>5</td></tr>
-<tr><td class='c'>4</td><td>18859104005058</td><td>DNJ (3) สุนัขโต เจ 3kg เหลือง*4</td><td class='c'>1</td><td class='c'>1</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x4</td><td class='c'>6</td></tr>
-<tr><td class='c'>5</td><td>8859104010710-1</td><td>เต็มเต็ม อ.แมวโต รสแซลมอนย่าง 600g</td><td class='c'>1</td><td class='c'>28</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>65</td></tr>
-<tr class='hcat'><td colspan='9'>B206 BINGO STAR อ.สุนัข</td></tr>
-<tr><td class='c'>6</td><td>8859104010208-1</td><td>BINGO สุนัขโตสูตร 3 มิกซ์ 700g</td><td class='c'>1</td><td class='c'>72</td><td class='c b'>1</td><td class='c'>กระสอบ</td><td class='c'>-</td><td class='c'>46</td></tr>
-<tr class='hcat'><td colspan='9'>B215 BUZZ อ.สุนัข แมว</td></tr>
-<tr><td class='c'>7</td><td>8854052312107</td><td>BUZZ BEYOND แม่แมวและลูกแมว 1kg</td><td class='c'>2</td><td class='c'>11</td><td class='c b'>2</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>54</td></tr>
-<tr class='hcat'><td colspan='9'>B217 Blufaro Petcare อาหารสัตว์</td></tr>
-<tr><td class='c'>8</td><td>8853527037460</td><td>CF16 Catty Cat ปลาทูน่าเนื้อแดงในเกรวี่ 400g</td><td class='c'>2</td><td class='c'>11</td><td class='c b'>2</td><td class='c'>กระป๋อง</td><td class='c'>-</td><td class='c'>95</td></tr>
-<tr><td class='c'>9</td><td>8853527037477</td><td>CF18 Catty Cat ปลาซาร์ดีนในเกรวี่ 400g</td><td class='c'>2</td><td class='c'>10</td><td class='c b'>2</td><td class='c'>กระป๋อง</td><td class='c'>-</td><td class='c'>56</td></tr>
-<tr><td class='c'>10</td><td>8859214534137-1</td><td>RC212 RAPTOR อ.แมว ปลาแซลมอน 2 มิกส์ 600g</td><td class='c'>1</td><td class='c'>28</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>64</td></tr>
-<tr class='hcat'><td colspan='9'>D401 DADDY DOG ขนมสุนัข </td></tr>
-<tr><td class='c'>11</td><td>8859875400413</td><td>DD2123 หนังเกลียวขาวพันไก่ 320g</td><td class='c'>1</td><td class='c'>4</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>6</td></tr>
-<tr class='hcat'><td colspan='9'>E501 EAZY ทรายอีซี่แคท</td></tr>
-<tr><td class='c'>12</td><td>745240065623</td><td>ทูทู ทรายภูเขาไฟเกาหลี (นาโน เฟรช) 10L</td><td class='c'>1</td><td class='c'>0</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>6</td></tr>
-<tr class='hcat'><td colspan='9'>F503 FRISKIES อ.แมว ขนมแมว</td></tr>
-<tr><td class='c'>13</td><td>8850125073166</td><td>(6) FRISKIES ซีฟู้ด ฟ้า 6kg</td><td class='c'>1</td><td class='c'>0</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>9</td></tr>
-<tr class='hcat'><td colspan='9'>F504 FRONTGUARO กำจัดหมัด</td></tr>
-<tr><td class='c'>14</td><td>8859483600038</td><td>FRONTGUARD PLUS ยาหยอดเห็บหมัดสำหรับแมวและลูกแมว 50 หลอด</td><td class='c'>1</td><td class='c'>16</td><td class='c b'>32</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>32</td></tr>
-<tr class='hcat'><td colspan='9'>G701 GREATEST PET CARE</td></tr>
-<tr><td class='c'>15</td><td>8859306610541-1</td><td>ด็อกเกอร์ รสตับ 3สี 700g นง</td><td class='c'>1</td><td class='c'>56</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>43</td></tr>
-<tr class='hcat'><td colspan='9'>G702 Ginno อาหาร ขนม</td></tr>
-<tr><td class='c'>16</td><td>48851111002014</td><td>GINNO (2) รสปลาทูน่าเนื้อไก่ในเยลลี่ 60g.*12*4</td><td class='c'>5</td><td class='c'>112</td><td class='c b'>2</td><td class='c'>แพ็ค</td><td class='c'>x4</td><td class='c'>49</td></tr>
-<tr class='hcat'><td colspan='9'>J904 JBF อ.สุนัขและแมว</td></tr>
-<tr><td class='c'>17</td><td>8859706900099-1</td><td>WD รสทูน่ารมควัน 3 มิกซ์ 600g</td><td class='c'>5</td><td class='c'>27</td><td class='c b'>5</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>8</td></tr>
-<tr class='hcat'><td colspan='9'>K1001 KANIMAL ทรายแมว</td></tr>
-<tr><td class='c'>18</td><td>8859739220898-6</td><td>5L Kanimal แป้งเด็ก 5L.*6 ถุง</td><td class='c'>1</td><td class='c'>5</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>17</td></tr>
-<tr><td class='c'>19</td><td>8859739220911-6</td><td>5L Kanimal นมเมลอน 5L.*6ถุง</td><td class='c'>1</td><td class='c'>9</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>50</td></tr>
-<tr><td class='c'>20</td><td>8859739220874-6</td><td>5L Kanimal องุ่น 5L.*6 ถุง</td><td class='c'>1</td><td class='c'>33</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>30</td></tr>
-<tr class='hcat'><td colspan='9'>K1004 KASTY ทรายแมว</td></tr>
-<tr><td class='c'>21</td><td>8859739200739</td><td>KASTY (24)FLAKES ORIGINAL 10L.</td><td class='c'>1</td><td class='c'>2</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>8</td></tr>
-<tr class='hcat'><td colspan='9'>M1204 MEO ทรายแมว</td></tr>
-<tr><td class='c'>22</td><td>18850477025926</td><td>5L MEO ทราย กลิ่นธรรมชาติ  5L*5ถุง</td><td class='c'>2</td><td class='c'>6</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x5</td><td class='c'>67</td></tr>
-<tr><td class='c'>23</td><td>18850477025988</td><td>5L MEO ทราย กลิ่นกาแฟ  5L*5ถุง</td><td class='c'>1</td><td class='c'>8</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x5</td><td class='c'>29</td></tr>
-<tr><td class='c'>24</td><td>18850477034225</td><td>5L MEO ทราย กลิ่นดอกคาโมมายล์  5L*5</td><td class='c'>1</td><td class='c'>10</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x5</td><td class='c'>38</td></tr>
-<tr class='hcat'><td colspan='9'>M1206 MEO อ.แมว</td></tr>
-<tr><td class='c'>25</td><td>18850477054155</td><td>5CAN54/1.2 (1)ME-O ปลาทู 1.2kg*6</td><td class='c'>1</td><td class='c'>2</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>13</td></tr>
-<tr class='hcat'><td colspan='9'>P1506 PEDIGREE อ.สุนัข</td></tr>
-<tr><td class='c'>26</td><td>8853301300100-1</td><td>PDG (1) สุนัขโต ไก่และผัก น้ำเงิน 700g</td><td class='c'>2</td><td class='c'>3</td><td class='c b'>2</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>6</td></tr>
-<tr class='hcat'><td colspan='9'>P1507 PERFECTA อ.สุนัข แมว</td></tr>
-<tr><td class='c'>27</td><td>18859104008394</td><td>Perfecta ซอฟ มีทตี้ รสเนื้อ 1kg*6</td><td class='c'>1</td><td class='c'>7</td><td class='c b'>5</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>5</td></tr>
-<tr class='hcat'><td colspan='9'>P1511 PET8 อ.สุนัข แมว</td></tr>
-<tr><td class='c'>28</td><td>18852523010498</td><td>CC08 Pet8 อ.เปียกแมว ปลาทูน่าหน้าสาหร่าย Jelly 400g*24</td><td class='c'>2</td><td class='c'>12</td><td class='c b'>1</td><td class='c'>ลัง</td><td class='c'>x24</td><td class='c'>35</td></tr>
-<tr><td class='c'>29</td><td>18852084173434</td><td>CC03 Pet 8 อ.เปียกแมว ทูน่ากุ้งในเยลลี่ 400g*24</td><td class='c'>1</td><td class='c'>15</td><td class='c b'>1</td><td class='c'>ลัง</td><td class='c'>x24</td><td class='c'>28</td></tr>
-<tr class='hcat'><td colspan='9'>P1526 PURINA ONE อ.แมว</td></tr>
-<tr><td class='c'>30</td><td>08850127001259</td><td>(1) PURINA ONE KITTEN แซลม่อนทูน่า 1.2 KG*4</td><td class='c'>1</td><td class='c'>2</td><td class='c b'>3</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>3</td></tr>
-<tr class='hcat'><td colspan='9'>P1533 PETPAL อ.สุนัข แมว</td></tr>
-<tr><td class='c'>31</td><td>8859720701740</td><td>(20) Smillie อ.แมว รสปลาทูน่า 1kg*20</td><td class='c'>1</td><td class='c'>28</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>x20</td><td class='c'>184</td></tr>
-<tr class='hcat'><td colspan='9'>R1706 ROYAL CANIN อ.เม็ดสุนัข</td></tr>
-<tr><td class='c'>32</td><td>3182550402460</td><td>RYD (1)PUPPY MAXI 1kg</td><td class='c'>2</td><td class='c'>0</td><td class='c b'>2</td><td class='c'>-</td><td class='c'>-</td><td class='c'>5</td></tr>
-<tr class='hcat'><td colspan='9'>S1812 SMARTHEART อ.สุนัข</td></tr>
-<tr><td class='c'>33</td><td>18850477812021</td><td>SH (1) อ.สุนัขพันธุ์เล็กรสเนื้ออบ 1.3kg.*6</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>2</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>2</td></tr>
-<tr class='hcat'><td colspan='9'>T1909 แคทตี้ โปร ด็อกกี้โปร อ.เม็ดสุนัขและแมว</td></tr>
-<tr><td class='c'>34</td><td>8859759400485-1</td><td>(0) แคทตี้ โปร ปลาทูน่า 600g. </td><td class='c'>1</td><td class='c'>13</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>33</td></tr>
-<tr class='hcat'><td colspan='9'>V2103 VIF FELINA อ.เปียกแมว</td></tr>
-<tr><td class='c'>35</td><td>18850511731066</td><td>HC7 Hilife ซีฟู๊ดแพลตเตอร์ 400g*12</td><td class='c'>1</td><td class='c'>0</td><td class='c b'>1</td><td class='c'>กระป๋อง</td><td class='c'>-</td><td class='c'>1</td></tr>
-<tr><td class='c'>36</td><td>18850511929388</td><td>HC1 Hilifeปลาแมคเคอเรล 400g*12</td><td class='c'>13</td><td class='c'>10</td><td class='c b'>23</td><td class='c'>กระป๋อง</td><td class='c'>-</td><td class='c'>23</td></tr>
-<tr><td class='c'>37</td><td>18850511929401</td><td>HC3 Hilife ฟิชทรีโอ้ ปลาเเมคเคอรเรลผสมปลาแซลมอน 400g*12</td><td class='c'>13</td><td class='c'>15</td><td class='c b'>2</td><td class='c'>โหล</td><td class='c'>x12</td><td class='c'>332</td></tr>
-<tr><td class='c'>38</td><td>18850511929418</td><td>HC4 Hilife ไก่ผลสเป็ด 400g*12</td><td class='c'>12</td><td class='c'>11</td><td class='c b'>1</td><td class='c'>โหล</td><td class='c'>x12</td><td class='c'>32</td></tr>
-<tr class='hcat'><td colspan='9'>V2105 VITAMINS วิตามินบำรุงรวมยี้ห้อ</td></tr>
-<tr><td class='c'>39</td><td>8857127009032</td><td>VFCORE LS วิตามินบำรุงกระตุ้นภูมิ 12g (เหลือง)*30</td><td class='c'>3</td><td class='c'>44</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x30</td><td class='c'>613</td></tr>
-<tr><td class='c'>40</td><td>8857127009414</td><td>VFCORE BIO Bar S  กระตุ้นภูมิ&amp;ปรับสมดุลทางเดินอาหาร (เขียว)12g*400</td><td class='c'>3</td><td class='c'>29</td><td class='c b'>26</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>26</td></tr>
-<tr><td class='c'>41</td><td>8857127009568</td><td>VFCORE UC วิตามินบำรุงระบบทางเดินปัสสวะ 12g (นง)*30</td><td class='c'>2</td><td class='c'>17</td><td class='c b'>12</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>12</td></tr>
-<tr class='hcat'><td colspan='9'>W2202 WHISKAS อ.แมว</td></tr>
-<tr><td class='c'>42</td><td>19310022715508</td><td>WK (1)สูตรปลาทะเล 1.2kg.*6</td><td class='c'>2</td><td class='c'>2</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>44</td></tr>
-<tr><td class='c'>43</td><td>19310022715409</td><td>WK (1)สูตรปลาทูน่า 1.2kg.*6</td><td class='c'>2</td><td class='c'>7</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>55</td></tr>
-<tr><td class='c'>44</td><td>18853301140819</td><td>WK (1)ลูกแมว สูตรปลาทะเล 1.1kg.*6</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>27</td></tr>
-<tr><td class='c'>45</td><td>18853301144213</td><td>WK (1)สูตรรสไก่ 1.2kg.*6 (เตรียมยกเลิก)</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>6</td></tr>
-<tr class='hcat'><td colspan='9'>Z2501 ZOI CAT อ.แมว</td></tr>
-<tr><td class='c'>46</td><td>8850477022140</td><td>(20) ZOI CAT ปลาทูน่า2Mix 1kg*20ถุง</td><td class='c'>7</td><td class='c'>6</td><td class='c b'>7</td><td class='c'>ชิ้น</td><td class='c'>x20</td><td class='c'>152</td></tr>
-<tr><td class='c'>47</td><td>8850477015050</td><td>(20) ZOI CAT ปลาทู 1kg*20ถุง</td><td class='c'>2</td><td class='c'>47</td><td class='c b'>2</td><td class='c'>ชิ้น</td><td class='c'>x20</td><td class='c'>952</td></tr>
-<tr class='hclass'><td colspan='9'>คลาส B — ขายปานกลาง</td></tr>
-<tr class='hcat'><td colspan='9'>909 อาหารกระต่าย</td></tr>
-<tr><td class='c'>48</td><td>8853223033003</td><td>หญ้าทิโมธี เกรดใบล้วน 500g 95.-</td><td class='c'>1</td><td class='c'>2</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>11</td></tr>
-<tr class='hcat'><td colspan='9'>B203 BEARING ของใช้</td></tr>
-<tr><td class='c'>49</td><td>18850292593280</td><td>BR CAT สูตรบำรุงผิวหนังเเละขน 250ml.*12</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>4</td><td class='c'>ขวด</td><td class='c'>-</td><td class='c'>4</td></tr>
-<tr class='hcat'><td colspan='9'>B206 BETAGO บ.เพ็ทโฟกัส อ.สุนัข อ.แมว</td></tr>
-<tr><td class='c'>50</td><td>18859104013169</td><td>DNJ Dental Care สุนัขพันธุ์ใหญ่ พืช 3+1 160g*10</td><td class='c'>1</td><td class='c'>4</td><td class='c b'>5</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>5</td></tr>
-<tr class='hcat'><td colspan='9'>B206 BINGO STAR อ.สุนัข</td></tr>
-<tr><td class='c'>51</td><td>18859104007229</td><td>BINGO STAR ยัมมี่ สติ๊ก รสเนื้อรมควัน 70g*12</td><td class='c'>1</td><td class='c'>0</td><td class='c b'>1</td><td class='c'>ซอง</td><td class='c'>-</td><td class='c'>1</td></tr>
-<tr class='hcat'><td colspan='9'>B217 Blufaro Petcare อาหารสัตว์</td></tr>
-<tr><td class='c'>52</td><td>99240724001</td><td>Catty Cat ขนมแมวเลีย 15gx4ซอง 25.-</td><td class='c'>1</td><td class='c'>8</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>19</td></tr>
-<tr class='hcat'><td colspan='9'>C308 CHOO CHOO อ.เปียกแมว</td></tr>
-<tr><td class='c'>53</td><td>8858786711809</td><td>CC สมูทตี้ ปลาซาบะ DHA+EPA 80g*24</td><td class='c'>4</td><td class='c'>6</td><td class='c b'>19</td><td class='c'>กระป๋อง</td><td class='c'>-</td><td class='c'>19</td></tr>
-<tr class='hcat'><td colspan='9'>K1013 KUMA ทิชชู ทราย ของใช้</td></tr>
-<tr><td class='c'>54</td><td>8859311592405</td><td>KUMA แผ่นรองซับ M45x60 50ชิ้น*8</td><td class='c'>1</td><td class='c'>1</td><td class='c b'>4</td><td class='c'>ห่อ </td><td class='c'>-</td><td class='c'>4</td></tr>
-<tr class='hcat'><td colspan='9'>L1108 LOLA&amp;CO ทราย ของใช้แมว</td></tr>
-<tr><td class='c'>55</td><td>18859601032519</td><td>LKC1 อ.แมวlola&amp;co รสเนื้อไก่ 1kg*8</td><td class='c'>2</td><td class='c'>4</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x8</td><td class='c'>11</td></tr>
-<tr class='hcat'><td colspan='9'>M1203 MEO ขนมแมว</td></tr>
-<tr><td class='c'>56</td><td>8850477028937</td><td>ME-O (M1) ขนมแมวเลีย4สี 15g100ซอง</td><td class='c'>1</td><td class='c'>12</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x25</td><td class='c'>94</td></tr>
-<tr class='hcat'><td colspan='9'>P1506 PEDIGREE อ.สุนัข</td></tr>
-<tr><td class='c'>57</td><td>19310022705707</td><td>PDG (1) ลูกสุนัขรส ไก่ ไข่ นม 1.3kg*6 ส้ม</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>13</td></tr>
-<tr class='hcat'><td colspan='9'>P1508 PET2GO ขนมสุนัข แมว</td></tr>
-<tr><td class='c'>58</td><td>8858979704229</td><td>DENTAL BONE (R) กลิ่นเนื้อ 105g</td><td class='c'>1</td><td class='c'>5</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>1</td></tr>
-<tr class='hcat'><td colspan='9'>P1512 PET8 ขนมสุนัข แมว</td></tr>
-<tr><td class='c'>59</td><td>8858767313336</td><td>HS02 กระดูกผูก 4-4.5 นิ้ว 3ชิ้น</td><td class='c'>2</td><td class='c'>1</td><td class='c b'>2</td><td class='c'>ซอง</td><td class='c'>-</td><td class='c'>2</td></tr>
-<tr class='hcat'><td colspan='9'>P1513 PET8 แชมพู ของใช้</td></tr>
-<tr><td class='c'>60</td><td>8852523016158</td><td>DA71 ทรายเต้าหู้ ออริจินอล 20L</td><td class='c'>1</td><td class='c'>0</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>4</td></tr>
-<tr class='hcat'><td colspan='9'>P1516 PETPROTECT แชมพู ของใช้</td></tr>
-<tr><td class='c'>61</td><td>745760629718</td><td>KANIMAL แชมพูสำหรับแมวขนยาว 280ml.</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>4</td></tr>
-<tr class='hcat'><td colspan='9'>P1522 PRAMY อ.เปียกแมว</td></tr>
-<tr><td class='c'>62</td><td>18859601054061</td><td>6L Pramy ทรายเต้าหู้ กลิ่นเมล่อน 6L*6</td><td class='c'>1</td><td class='c'>0</td><td class='c b'>3</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>3</td></tr>
-<tr><td class='c'>63</td><td>18859601044611</td><td>V02 แมวเลีย บำรุงกระดูและข้อ 14g*30</td><td class='c'>3</td><td class='c'>15</td><td class='c b'>29</td><td class='c'>ซอง</td><td class='c'>-</td><td class='c'>29</td></tr>
-<tr><td class='c'>64</td><td>18859601044635</td><td>V04 แมวเลีย ระบบย่อยและก้อนขน 14g*30</td><td class='c'>3</td><td class='c'>9</td><td class='c b'>29</td><td class='c'>ซอง</td><td class='c'>-</td><td class='c'>29</td></tr>
-<tr class='hcat'><td colspan='9'>P1536 PETWORLD </td></tr>
-<tr><td class='c'>65</td><td>9555544200610</td><td>Delizios  แมวเลีย ทูน่าปลาโอ 20g</td><td class='c'>3</td><td class='c'>47</td><td class='c b'>3</td><td class='c'>ซอง</td><td class='c'>-</td><td class='c'>39</td></tr>
-<tr class='hcat'><td colspan='9'>P1537 Perto ขนมสุนัข</td></tr>
-<tr><td class='c'>66</td><td>8857200743556</td><td>Perto มันชี่รูปกระดุก 6 แซลมอน </td><td class='c'>1</td><td class='c'>5</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>10</td></tr>
-<tr><td class='c'>67</td><td>8857200743563</td><td>Perto มันชี่อัดรูปกระดูก 6 จระเข้</td><td class='c'>1</td><td class='c'>5</td><td class='c b'>1</td><td class='c'>ถุง</td><td class='c'>-</td><td class='c'>6</td></tr>
-<tr class='hcat'><td colspan='9'>S1816 Supper Pets</td></tr>
-<tr><td class='c'>68</td><td>9992026041213</td><td>หวีแปรงขน 024 คละสี</td><td class='c'>1</td><td class='c'>4</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>17</td></tr>
-<tr class='hcat'><td colspan='9'>U2004 UNOVET NETWORK วิตามินบำรุง</td></tr>
-<tr><td class='c'>69</td><td>8859269960073-1</td><td>ถ่ายพยาธิ พรารินเทล แมว1*10เม็ด</td><td class='c'>1</td><td class='c'>21</td><td class='c b'>7</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>7</td></tr>
-<tr class='hcat'><td colspan='9'>Z2503 ZUELLIG ชูชู วิตามิน</td></tr>
-<tr><td class='c'>70</td><td>8858786713209</td><td>CC สมูทตี้ ปลาแมคเคอเรล กุ้ง 80g.24</td><td class='c'>2</td><td class='c'>6</td><td class='c b'>21</td><td class='c'>กระป๋อง</td><td class='c'>-</td><td class='c'>21</td></tr>
-<tr class='hclass'><td colspan='9'>คลาส C — ขายน้อย</td></tr>
-<tr class='hcat'><td colspan='9'>B203 BEARING ของใช้</td></tr>
-<tr><td class='c'>71</td><td>8850292593016</td><td>BEARING COTTON BUD SIZE L 50ก้าน</td><td class='c'>1</td><td class='c'>4</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>1</td></tr>
-<tr class='hcat'><td colspan='9'>B206 BETAGO บ.เพ็ทโฟกัส อ.สุนัข อ.แมว</td></tr>
-<tr><td class='c'>72</td><td>18859104013152</td><td>DNJ Dental Care สุนัขพันธุ์เล็ก-กลาง พืช 4+1 70g*10</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>4</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>4</td></tr>
-<tr class='hcat'><td colspan='9'>B217 Blufaro Petcare อาหารสัตว์</td></tr>
-<tr><td class='c'>73</td><td>8859214535981</td><td>CF04 อ.แมวโต ทูน่าเนื้อแดงแซลมอน 400g*24</td><td class='c'>1</td><td class='c'>8</td><td class='c b'>1</td><td class='c'>ลัง</td><td class='c'>x24</td><td class='c'>105</td></tr>
-<tr><td class='c'>74</td><td>8859214535998</td><td>CF05 อ.แมวโต ทูน่าเนื้อแดงคัตสึโอะบูชิ 400g*24</td><td class='c'>1</td><td class='c'>9</td><td class='c b'>1</td><td class='c'>ลัง</td><td class='c'>x24</td><td class='c'>33</td></tr>
-<tr class='hcat'><td colspan='9'>C308 CHOO CHOO อ.เปียกแมว</td></tr>
-<tr><td class='c'>75</td><td>8858786706461</td><td>CC ซุปปลาสกัดเข้มข้น 80g*24</td><td class='c'>1</td><td class='c'>6</td><td class='c b'>17</td><td class='c'>กระป๋อง</td><td class='c'>-</td><td class='c'>17</td></tr>
-<tr class='hcat'><td colspan='9'>K1002 KANIVA อ.เปียกแมว</td></tr>
-<tr><td class='c'>76</td><td>8859739210769</td><td>Kaniva แมวเลีย ทูน่าหอยเชลล์ครีมมี่ 15g</td><td class='c'>1</td><td class='c'>10</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x50</td><td class='c'>87</td></tr>
-<tr><td class='c'>77</td><td>8859739210868</td><td>Kaniva แมวเลีย ทูน่าเนื้อแกะครีมมี่ 15g*50</td><td class='c'>1</td><td class='c'>35</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x50</td><td class='c'>85</td></tr>
-<tr class='hcat'><td colspan='9'>K1013 KUMA ทิชชู ทราย ของใช้</td></tr>
-<tr><td class='c'>78</td><td>8859311593396</td><td>KUMA ทิชชูเปียกสัตว์เลี้ยง3+1 (นต)40แผ่น*36</td><td class='c'>1</td><td class='c'>4</td><td class='c b'>30</td><td class='c'>ห่อ </td><td class='c'>-</td><td class='c'>30</td></tr>
-<tr class='hcat'><td colspan='9'>P1508 PET2GO ขนมสุนัข แมว</td></tr>
-<tr><td class='c'>79</td><td>8858979704267</td><td>DENTAL BONE (J) กลิ่นเนื้อ 175g</td><td class='c'>1</td><td class='c'>0</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>10</td></tr>
-<tr class='hcat'><td colspan='9'>P1513 PET8 แชมพู ของใช้</td></tr>
-<tr><td class='c'>80</td><td>28852523009994</td><td>MT01 BeTick หยอดเห็บหมัด &lt;10kg*50</td><td class='c'>1</td><td class='c'>12</td><td class='c b'>45</td><td class='c'>กล่อง</td><td class='c'>-</td><td class='c'>45</td></tr>
-<tr class='hcat'><td colspan='9'>P1522 PRAMY อ.เปียกแมว</td></tr>
-<tr><td class='c'>81</td><td>38859601045155</td><td>PRAMY SM5 DIGESTIVE 14g*30+6</td><td class='c'>5</td><td class='c'>24</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x36</td><td class='c'>45</td></tr>
-<tr class='hcat'><td colspan='9'>P1531 PETEMPIRE</td></tr>
-<tr><td class='c'>82</td><td>8859798707187</td><td>ชามใส่อาหาร ชม 25.-</td><td class='c'>2</td><td class='c'>0</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>1</td></tr>
-<tr class='hcat'><td colspan='9'>R1705 ROYAL CANIN อ.เปียกแมว</td></tr>
-<tr><td class='c'>83</td><td>9003579022399</td><td>RYC HAIRBALL CARE JELLY 85g</td><td class='c'>1</td><td class='c'>30</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>24</td></tr>
-<tr class='hcat'><td colspan='9'>S1812 SMARTHEART อ.สุนัข</td></tr>
-<tr><td class='c'>84</td><td>18850477832029</td><td>SH (1) อ.สุนัขพันธุ์เล็กรสไก่และตับ 1.3kg.*6</td><td class='c'>1</td><td class='c'>3</td><td class='c b'>1</td><td class='c'>แพ็ค</td><td class='c'>x6</td><td class='c'>12</td></tr>
-<tr class='hcat'><td colspan='9'>S1816 Supper Pets</td></tr>
-<tr><td class='c'>85</td><td>9992026041216</td><td>หวี 021 ซี่สั้น+ยาว</td><td class='c'>1</td><td class='c'>2</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>7</td></tr>
-<tr class='hcat'><td colspan='9'>U2001 UNICHARM ห้องน้ำ ทรายแมว ของใช้</td></tr>
-<tr><td class='c'>86</td><td>99240822002</td><td>แพมเพิส สุนัข S(ญ)(ช)</td><td class='c'>1</td><td class='c'>0</td><td class='c b'>1</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>11</td></tr>
-<tr><td class='c'>87</td><td>28851111804010</td><td>DeoClean ทิชชูเปียก ไม่มีน้ำหอม 20 แผ่น*24</td><td class='c'>1</td><td class='c'>4</td><td class='c b'>7</td><td class='c'>ชิ้น</td><td class='c'>-</td><td class='c'>7</td></tr>
-<tr class='hcat'><td colspan='9'>Y2402 เยี่ยมพาณิชย์ อาหาร นม</td></tr>
-<tr><td class='c'>88</td><td>4901133632433</td><td>QSC-215 Soft Bits Mix รสปลาโอแห้ง 25 g.</td><td class='c'>1</td><td class='c'>4</td><td class='c b'>1</td><td class='c'>ซอง</td><td class='c'>-</td><td class='c'>9</td></tr>
-    </tbody>
-  </table>
-  <p class="total">รวมทั้งสิ้น 88 รายการ</p>
-  <div class="sign">
-    <div><div class="line">ผู้ขอเบิก</div></div>
-    <div><div class="line">ผู้จ่ายสินค้า</div></div>
-    <div><div class="line">ผู้รับสินค้า</div></div>
-  </div>
-  </div>
-</body></html>
+<body><div class="card">
+  <h1>📋 ใบเบิกสินค้า ML2 → ML3 — รอข้อมูล</h1>
+  <p>รอบล่าสุดระบบยังไม่ได้รับข้อมูล backup ที่สมบูรณ์ครบทั้ง 2 สาขา
+     จึง<b>งดออกใบเบิกชั่วคราว</b>แทนที่จะแสดงตัวเลขที่เชื่อไม่ได้</p>
+  <div class="why">ใบเบิกจะกลับมาเองอัตโนมัติในรอบแรกที่ข้อมูลครบ (ปกติไม่เกิน 1-2 ชั่วโมงหลังเครื่องสาขาส่งข้อมูลได้)
+     ไม่ต้องแจ้งใคร ไม่ต้องกดอะไร — ถ้าค้างนานเกินครึ่งวัน แจ้งผู้ดูแลระบบ</div>
+  <a class="btn" href="/warehouse">← หน้าคลังและจัดส่ง</a>
+  <a class="btn gold" href="/home">🏠 หน้าหลัก</a>
+</div></body></html>
