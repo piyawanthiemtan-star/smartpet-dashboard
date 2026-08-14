@@ -68,10 +68,11 @@
   <div><a class="tab" href="/purchasing">← แดชบอร์ดจัดซื้อ</a><a class="tab" href="/home">🏠 หน้าหลัก</a></div>
   <h1>🧾 สั่งซื้อรายซัพพลายเออร์</h1>
   <div class="sub" id="gen">–</div>
-  <div class="hint">เลือกซัพ → ระบบติ๊กตัวที่ควรสั่งให้ (พื้นเหลือง = แนะนำสั่ง เติมให้พอ <span id="cdays"></span> วัน
-    โดยหัก<b>สต๊อกรวม 2 สาขา</b> — ของที่กองอยู่หน้าร้าน ML2 ถูกนับแล้ว ไม่สั่งซ้ำ)
-    · <b>ตัวที่มีป้าย xN = สั่งเต็มลัง/โหลเท่านั้น</b> (จำนวนสั่ง = จำนวนลัง)
-    → แก้จำนวนได้ → 🖨 พิมพ์ยื่นเซลล์ หรือ 📋 คัดลอกส่ง LINE<br>
+  <div class="hint">เลือกซัพ → <b>ติ๊กเลือกเอง</b> (พื้นเหลือง = ระบบแนะนำสั่ง เติมให้พอ <span id="cdays"></span> วัน
+    โดยหัก<b>สต๊อกรวม 2 สาขา</b> — ระบบไม่ติ๊กให้ แค่ชี้เป้า)
+    · <b>ที่ติ๊ก+จำนวนที่กรอก จำไว้ให้แม้ค้นหา/สลับตัวกรอง</b> จนกว่าจะกด ✖ ล้างเอง ก่อนเริ่มใบใหม่
+    · ตัวที่มีป้าย xN = สั่งเต็มลัง/โหลเท่านั้น (จำนวนสั่ง = จำนวนลัง)
+    → 🖨 พิมพ์ยื่นเซลล์ หรือ 📋 คัดลอกส่ง LINE<br>
     🔗 <b>ผูกซัพ:</b> เปิดกลุ่ม "❓ ยังไม่ระบุ" (หรือกลุ่มที่มีป้าย <span class="guess">เดา</span>)
     → ติ๊กสินค้า → เลือกเจ้าในแถบเขียว → 💾 บันทึก — จำถาวร ใช้แก้ตัวที่ระบบเดาผิดได้ด้วย</div>
   <div class="pick">
@@ -121,6 +122,9 @@ var D = __DATA__;
 var VBY = {}; D.vendors.forEach(function(v){ VBY[v.id] = v; });
 var SORTK = "sugg";
 var COVER = 14;   // ระยะรอของซัพ (วันที่สั่งเผื่อ) — ปุ่ม 5-7/7-14/14-30 เปลี่ยนค่านี้ [Owner เคาะ]
+// ความจำการเลือก [จัดซื้อขอ 14 ส.ค.]: ระบบไม่ติ๊กให้เอง (เหลือแค่พื้นเหลืองแนะนำ)
+// ติ๊ก/จำนวนที่กรอก จำไว้ข้ามการค้นหา-กรอง-เรียง-เปลี่ยนระยะรอของ จนกว่าจัดซื้อกด ✖ ล้างเอง
+var SEL = {};   // bc -> { on: true/false, qty: "ที่กรอกเอง" }
 function needOf(x){ return Math.max(0, Math.ceil((x.s30/30)*COVER - x.tot)); }   // ขาดกี่ชิ้นถึงพอขาย COVER วัน
 function suggOf(x){
   var need = needOf(x);
@@ -228,8 +232,9 @@ function render(){
       ? '<b>' + sg + '</b> ' + esc(x.mult ? x.punit : (x.unit || "ชิ้น"))
         + (x.mult ? '<br><span style="color:#8a97a6;font-size:11px">ขาด ' + nd + ' ชิ้น</span>' : '')
       : '<span style="color:#8a97a6">-</span>';
+    var s = SEL[x.bc] || {};
     h.push('<tr data-bc="' + esc(x.bc) + '"' + (sg > 0 ? ' class="sugg"' : '') + '>'
-      + '<td class="c"><input type="checkbox" class="ck"' + (sg > 0 ? ' checked' : '') + '></td>'
+      + '<td class="c"><input type="checkbox" class="ck"' + (s.on ? ' checked' : '') + '></td>'
       + '<td class="bc">' + esc(x.bc) + '</td>'
       + '<td>' + esc(x.name) + (x.src === "c" || x.src === "b"
           ? '<span class="guess" title="ระบบเดาจาก' + (x.src === "c" ? 'ประเภทสินค้า' : 'แบรนด์')
@@ -240,30 +245,67 @@ function render(){
       + '<td class="r">' + (x.cost || "-") + '</td>'
       + '<td class="c">' + (x.mult ? '<span class="casechip">x' + x.mult + '</span>' : '-') + '</td>'
       + '<td class="c" style="white-space:nowrap">' + rec + '</td>'
-      + '<td class="qty c"><input type="number" min="0" step="1" class="qy" value="' + (sg || "") + '"></td>'
+      + '<td class="qty c"><input type="number" min="0" step="1" class="qy" value="'
+      + (s.qty != null ? esc(s.qty) : (sg || "")) + '"></td>'
       + '<td class="c">' + esc(orderUnit(x)) + '</td></tr>');
   });
   document.getElementById("tb").innerHTML = h.join("");
-  document.getElementById("tot").textContent = "แสดง " + rows.length + " รายการ · ติ๊กแล้ว " + rows.filter(function(x){return suggOf(x)>0;}).length + " (สั่งเผื่อ " + COVER + " วัน · แก้ได้)";
+  updateTotal();
 }
 
+function updateTotal(){
+  var vid = document.getElementById("vsel").value;
+  if (!vid) { document.getElementById("tot").textContent = ""; return; }
+  var nSel = vendItems().filter(function(x){ return SEL[x.bc] && SEL[x.bc].on; }).length;
+  document.getElementById("tot").textContent = "แสดง " + curItems().length + " รายการ · เลือกไว้ "
+    + nSel + " (จำไว้แม้ค้นหา/เปลี่ยนตัวกรอง — กด ✖ เมื่อจะเริ่มใบใหม่) · สั่งเผื่อ " + COVER + " วัน";
+}
+
+// จำการติ๊ก/จำนวนทุกครั้งที่แตะ (event delegation — แถวถูกสร้างใหม่ทุก render)
+document.getElementById("tb").addEventListener("change", function(e){
+  if (!e.target.classList.contains("ck")) return;
+  var bc = e.target.closest("tr").dataset.bc;
+  SEL[bc] = SEL[bc] || {};
+  SEL[bc].on = e.target.checked;
+  updateTotal();
+});
+document.getElementById("tb").addEventListener("input", function(e){
+  if (!e.target.classList.contains("qy")) return;
+  var bc = e.target.closest("tr").dataset.bc;
+  SEL[bc] = SEL[bc] || {};
+  SEL[bc].qty = e.target.value;
+});
+
 function setAll(on){
-  document.querySelectorAll("#tb .ck").forEach(function(c){ c.checked = on; });
-  document.getElementById("msg").textContent = on ? "☑ เลือกทั้งหมดแล้ว" : "✖ ล้างการเลือกแล้ว";
-  setTimeout(function(){ document.getElementById("msg").textContent = ""; }, 2500);
+  if (on) {
+    // เลือกทั้งหมด = เฉพาะรายการที่แสดงอยู่ (ตามตัวกรอง/คำค้นปัจจุบัน)
+    document.querySelectorAll("#tb tr").forEach(function(tr){
+      tr.querySelector(".ck").checked = true;
+      var bc = tr.dataset.bc;
+      SEL[bc] = SEL[bc] || {};
+      SEL[bc].on = true;
+    });
+    document.getElementById("msg").textContent = "☑ เลือกรายการที่แสดงอยู่ทั้งหมดแล้ว";
+  } else {
+    // ล้าง = ล้างความจำทั้งหมด (รวมตัวที่เลือกไว้แต่ถูกกรองซ่อนอยู่) — จัดซื้อกดเองก่อนเริ่มใบใหม่
+    SEL = {};
+    render();
+    document.getElementById("msg").textContent = "✖ ล้างการเลือกทั้งหมดแล้ว — เริ่มใบใหม่ได้เลย";
+  }
+  updateTotal();
+  setTimeout(function(){ document.getElementById("msg").textContent = ""; }, 3000);
 }
 document.getElementById("ball").onclick = function(){ setAll(true); };
 document.getElementById("bnone").onclick = function(){ setAll(false); };
 
 function picked(){
+  // รวมตัวที่เลือกไว้ทั้งหมดของซัพนี้ — แม้ตอนนี้ถูกคำค้น/ตัวกรองซ่อนอยู่ก็ไปออกใบด้วย
   var out = [];
-  document.querySelectorAll("#tb tr").forEach(function(tr){
-    if (!tr.querySelector(".ck").checked) return;
-    var qty = parseFloat(tr.querySelector(".qy").value) || 0;
-    if (qty <= 0) return;
-    var bc = tr.dataset.bc;
-    var x = D.items.filter(function(i){ return i.bc === bc; })[0];
-    if (x) out.push({ x: x, qty: qty });
+  vendItems().forEach(function(x){
+    var s = SEL[x.bc];
+    if (!s || !s.on) return;
+    var qty = parseFloat(s.qty != null ? s.qty : suggOf(x)) || 0;
+    if (qty > 0) out.push({ x: x, qty: qty });
   });
   return out;
 }
@@ -333,10 +375,8 @@ document.getElementById("bbind").onclick = function(){
   var vid = document.getElementById("bindsel").value;
   m.className = "err";
   if (!vid) { m.textContent = "⚠️ เลือกซัพพลายเออร์ที่จะผูกก่อน"; return; }
-  var bcs = [];
-  document.querySelectorAll("#tb tr").forEach(function(tr){
-    if (tr.querySelector(".ck").checked) bcs.push(tr.dataset.bc);
-  });
+  var bcs = vendItems().filter(function(x){ return SEL[x.bc] && SEL[x.bc].on; })
+                       .map(function(x){ return x.bc; });
   if (!bcs.length) { m.textContent = "⚠️ ติ๊กสินค้าที่จะผูกก่อน (ช่องเลือกซ้ายสุด)"; return; }
   btn.disabled = true; m.className = ""; m.textContent = "กำลังบันทึก " + bcs.length + " ตัว…";
   fetch("/api/vendor-map/save", { method: "POST", credentials: "same-origin",
@@ -345,7 +385,7 @@ document.getElementById("bbind").onclick = function(){
   }).then(function(r){ return r.json(); }).then(function(j){
     btn.disabled = false;
     if (!j.ok) { m.className = "err"; m.textContent = "⚠️ " + (j.error || "บันทึกไม่สำเร็จ"); return; }
-    var inSet = {}; bcs.forEach(function(b){ inSet[b] = 1; });
+    var inSet = {}; bcs.forEach(function(b){ inSet[b] = 1; delete SEL[b]; });   // ย้ายกลุ่มแล้ว ล้างติ๊กตัวนั้น
     D.items.forEach(function(x){ if (inSet[x.bc]) { x.vid = vid; x.src = "m"; } });
     fillVendorSel(); fillCats(); render();
     m.className = ""; m.textContent = "✅ ผูก " + j.n + " ตัวเข้ากับ \"" + ((VBY[vid] || {}).name || "")
