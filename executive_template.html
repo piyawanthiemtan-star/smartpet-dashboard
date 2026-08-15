@@ -206,8 +206,10 @@
         <input id="clr-search" type="search" placeholder="🔎 พิมพ์ค้นหา: ชื่อสินค้า / หมวด / รหัสประเภท / บาร์โค้ด" style="flex:1;min-width:260px;padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:13.5px">
         <span id="clr-found" style="font-size:12.5px;color:var(--ink-3)"></span>
       </div>
-      <div id="clr-actions" style="display:none;position:sticky;top:0;z-index:5;background:var(--surface-2);border:1px solid var(--gold,#C89535);border-radius:10px;padding:8px 14px;margin:0 0 10px;align-items:center;gap:12px">
-        ✅ เลือกแล้ว <b id="clr-n" class="tnum">0</b> รายการ
+      <!-- แถบปุ่มโชว์ตลอด ปุ่มจางจนกว่าติ๊ก [Owner เคยเข้าใจว่าฟีเจอร์หาย 15 ส.ค. — เดิมซ่อนจนติ๊กแล้วค่อยโผล่] -->
+      <div id="clr-actions" style="display:flex;position:sticky;top:0;z-index:5;background:var(--surface-2);border:1px solid var(--gold,#C89535);border-radius:10px;padding:8px 14px;margin:0 0 10px;align-items:center;gap:12px;flex-wrap:wrap">
+        <span>✅ เลือกแล้ว <b id="clr-n" class="tnum">0</b> รายการ</span>
+        <span id="clr-hint" style="font-size:12.5px;color:var(--ink-3)">← ติ๊กช่องหน้าสินค้าในตารางก่อน แล้วปุ่มจะกดได้</span>
         <button id="clr-make" style="background:var(--gold,#C89535);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">📋 ออกใบรายการโปร</button>
         <button id="clr-send" style="background:#173D61;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">📣 ส่งให้การตลาด</button>
         <button id="clr-clear" style="background:transparent;color:var(--ink-3);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:12.5px;cursor:pointer">ล้างที่เลือก</button>
@@ -301,6 +303,7 @@ function renderClearance(){
   $("clr-rows").innerHTML=c.map((x,i)=>{const t=T[x.tier]||T.mid,r=x.reason==="dead"?"ของตาย":"ล้น C";
     return `<tr><td style="text-align:center"><input type="checkbox" class="clr-ck" data-i="${i}" style="width:16px;height:16px;cursor:pointer"></td><td style="text-align:left">${esc(x.name)}<div style="font-size:11px;color:var(--ink-3)">${esc(x.cat)} · ${esc(x.bc||"")}</div></td><td style="text-align:center;font-size:11.5px;color:var(--ink-2)">${r}</td><td class="tnum" style="text-align:right;font-weight:700">${baht0(x.cashLocked)}</td><td class="tnum" style="text-align:right">${x.stock} / ${x.sold365}</td><td class="tnum" style="text-align:right">${x.cost}→${x.price}<div style="font-size:11px;color:var(--ink-3)">มาร์จิ้น ${x.marginNow}%</div></td><td class="tnum" style="text-align:right;font-weight:700;color:var(--accent)">฿${x.promo}<div style="font-size:11px;color:var(--ink-3)">ลด ${x.disc}%</div></td><td class="tnum" style="text-align:right">${x.marginKept}%</td><td style="text-align:left"><span style="background:${t[2]};color:${t[1]};font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:12px;white-space:nowrap">${t[0]}</span></td></tr>`;
   }).join("")||'<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:16px">— ไม่มีรายการต้องระบาย —</td></tr>';
+  clrUpdateBar();   // ตั้งสถานะปุ่มตั้งแต่โหลด (แถบโชว์ตลอด ปุ่มจางจนกว่าติ๊ก)
 }
 /* ===== เลือกสินค้าจากตารางเร่งระบาย -> ออกใบรายการโปร (บาร์โค้ด/ชื่อ/ราคาโปร) ให้ทีม ===== */
 /* ใบที่ออกไม่มีทุน/มาร์จิ้น — ส่งต่อทีมหน้าร้านได้เลยตามนโยบายแยกข้อมูล */
@@ -308,7 +311,9 @@ function clrSelected(){return [...document.querySelectorAll(".clr-ck:checked")].
 function clrUpdateBar(){
   const n=document.querySelectorAll(".clr-ck:checked").length;
   $("clr-n").textContent=n;
-  $("clr-actions").style.display=n?"flex":"none";
+  // แถบโชว์ตลอด — n=0 แค่ทำปุ่มจาง+กดไม่ได้ (เดิมซ่อนทั้งแถบ Owner นึกว่าฟีเจอร์หาย)
+  ["clr-make","clr-send"].forEach(id=>{const b=$(id);if(b){b.disabled=!n;b.style.opacity=n?"1":".45";b.style.cursor=n?"pointer":"not-allowed";}});
+  const hint=$("clr-hint"); if(hint) hint.style.display=n?"none":"inline";
   const all=$("clr-all"); if(all){const t=document.querySelectorAll(".clr-ck").length;all.checked=t>0&&n===t;all.indeterminate=n>0&&n<t;}
 }
 document.addEventListener("change",e=>{
