@@ -449,6 +449,7 @@ load();
 function accountingPage(sess, env) {
   const attUrl = env.ATTENDANCE_URL || "https://piyawanthiemtan-star.github.io/attendance-app/attendance-app.html";
   const tiles = [
+    `<a class="tile" href="/accounting-ap"><span class="badge on">ใช้งานได้</span><div class="ic">💰</div><div class="t">เจ้าหนี้การค้า (AP)</div><div class="d">บิลค้างจ่ายจากใบรับของ · ครบกำหนดตามเครดิตซัพ · บันทึกจ่าย · บัญชีโอน · พิมพ์รายการทำจ่าย</div><div class="go">เปิดดู →</div></a>`,
     `<a class="tile" href="/accounting-daily"><span class="badge on">ใช้งานได้</span><div class="ic">🧾</div><div class="t">ใบปิดยอดรายกะ</div><div class="d">เงินตั้งต้น · เงินสด/โอน/เครดิต แยกช่องทาง · ส่วนต่างลิ้นชักทุกกะ ทั้ง 2 สาขา</div><div class="go">เปิดดู →</div></a>`,
     `<a class="tile" href="${esc(attUrl)}" target="_blank" rel="noopener"><span class="badge on">ใช้งานได้</span><div class="ic">⏰</div><div class="t">ลงเวลาเข้า-ออกงาน</div><div class="d">บันทึกเวลาทำงานพนักงาน · เปิดแอปลงเวลา</div><div class="go">เปิดแอป →</div></a>`,
     `<a class="tile soon" href="#"><span class="badge dev">กำลังพัฒนา</span><div class="ic">📱</div><div class="t">ค่าคอมร้านมือถือ</div><div class="d">คำนวณค่าคอมมิชชั่นรายเดือน สาขามือถือ (ML1)</div><div class="go">เร็วๆ นี้</div></a>`,
@@ -1106,6 +1107,50 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
       return env.ASSETS.fetch(new Request(new URL("/daily", url), request));   // clean URL → daily.html
     }
 
+    // ===== API เจ้าหนี้การค้า (Supabase ตาราง ap_bills) — ทีมบัญชี + owner [22 ส.ค. 2569] =====
+    // GET /api/ap = สถานะทุกบิล · POST /api/ap/update = upsert สถานะ/ยอดจริง (key bill_id = "ML3-<ImportProduct.Id>")
+    if (path === "/api/ap" || path === "/api/ap/update") {
+      const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+      const sess = await readSession(request, env);
+      if (!sess) return J({ error: "กรุณาเข้าสู่ระบบ" }, 401);
+      if (!(sess.is_admin || canSee(sess, "accounting"))) return J({ error: "เฉพาะทีมบัญชี/ผู้บริหาร" }, 403);
+      if (!env.SB_URL || !env.SB_SERVICE_KEY) return J({ error: "ยังไม่ได้ตั้ง secret SB_SERVICE_KEY บน Cloudflare" }, 500);
+      const sb = (p, init = {}) => fetch(env.SB_URL + "/rest/v1/" + p, { ...init,
+        headers: { "apikey": env.SB_SERVICE_KEY, "Authorization": "Bearer " + env.SB_SERVICE_KEY, "Content-Type": "application/json", ...(init.headers || {}) } });
+      if (request.method === "GET" && path === "/api/ap") {
+        const r = await sb("ap_bills?select=*&limit=5000");
+        return new Response(await r.text(), { status: r.status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+      }
+      if (request.method === "POST" && path === "/api/ap/update") {
+        let b; try { b = await request.json(); } catch { return J({ error: "bad json" }, 400); }
+        const id = String(b.bill_id || "").trim();
+        if (!/^ML[23]-\d{1,12}$/.test(id)) return J({ error: "รหัสบิลไม่ถูกต้อง" }, 400);
+        const status = String(b.status || "open");
+        if (!["open", "hold", "paid"].includes(status)) return J({ error: "สถานะไม่ถูกต้อง" }, 400);
+        const num = (v) => (v === "" || v == null) ? null : (isFinite(+v) && +v >= 0 ? Math.round(+v * 100) / 100 : NaN);
+        const date = (v) => { const s = String(v || "").trim(); return s ? (/^\d{4}-\d{2}-\d{2}$/.test(s) ? s : NaN) : null; };
+        const txt = (v, n) => String(v == null ? "" : v).trim().slice(0, n) || null;
+        const row = { bill_id: id, status, updated_by: sess.user, updated_at: new Date().toISOString() };
+        if (status === "paid") {
+          row.paid_date = date(b.paid_date); row.paid_amount = num(b.paid_amount);
+          if (!row.paid_date || Number.isNaN(row.paid_date)) return J({ error: "วันที่จ่ายไม่ถูกต้อง" }, 400);
+          if (!(row.paid_amount > 0)) return J({ error: "ยอดที่จ่ายต้องมากกว่า 0" }, 400);
+          row.paid_ref = txt(b.paid_ref, 120);
+        } else {
+          row.paid_date = null; row.paid_amount = null; row.paid_ref = null;   // ยกเลิกจ่าย/พัก = ล้างข้อมูลจ่าย
+        }
+        if ("invoice_no" in b) row.invoice_no = txt(b.invoice_no, 80);
+        if ("invoice_amount" in b) { row.invoice_amount = num(b.invoice_amount); if (Number.isNaN(row.invoice_amount)) return J({ error: "ยอดใบแจ้งหนี้ไม่ถูกต้อง" }, 400); }
+        if ("note" in b) row.note = txt(b.note, 300);
+        const r = await sb("ap_bills?on_conflict=bill_id", { method: "POST",
+          headers: { "Prefer": "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(row) });
+        const out = await r.json().catch(() => null);
+        if (!r.ok) return J({ error: "บันทึกไม่สำเร็จ (" + r.status + ")" + (out && out.message ? " " + out.message : "") }, 502);
+        return J({ ok: true, row: Array.isArray(out) ? out[0] : row });
+      }
+      return J({ error: "method not allowed" }, 405);
+    }
+
     // ===== API ใบสั่งงานการตลาด (เก็บใน Supabase ตาราง marketing_jobs, worker ใช้ service key) =====
     // เห็นได้: owner + จัดซื้อ + การตลาด · สั่งงาน: owner เท่านั้น · อัปเดตสถานะ: การตลาด + owner
     if (path === "/api/marketing-jobs" || path === "/api/marketing-jobs/status" || path === "/api/marketing-jobs/delete" || path === "/api/marketing-jobs/image") {
@@ -1172,6 +1217,15 @@ ISP/องค์กร: <b>${esc(cf.asOrganization || "-")}</b><br>
         return J({ ok: r.ok }, r.ok ? 200 : r.status);
       }
       return J({ error: "method not allowed" }, 405);
+    }
+
+    // เจ้าหนี้การค้า (AP) — ทีมบัญชี + owner · ไฟล์สร้างทุก build จาก ap_report.py (ไม่มีกำไร/ราคาขาย)
+    if (execP === "accounting-ap") {
+      const sess = await readSession(request, env);
+      if (!sess) return new Response(null, { status: 302, headers: { "Location": "/login?next=" + encodeURIComponent("/accounting-ap") } });
+      if (ipRestricted(request, env, sess)) return offNetworkPage(request, sess);
+      if (!canSee(sess, "accounting")) return forbidden("accounting", sess);
+      return env.ASSETS.fetch(new Request(new URL("/accounting-ap", url), request));   // clean URL → accounting-ap.html
     }
 
     // ใบปิดยอดรายกะ ฉบับบัญชี — ไม่มีตัวเลขกำไรในไฟล์เลย (คนละไฟล์กับ /daily ของผู้บริหาร)

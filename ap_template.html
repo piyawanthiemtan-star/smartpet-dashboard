@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>เจ้าหนี้การค้า (AP) — บัญชี</title>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:Tahoma,"TH Sarabun New",sans-serif; margin:0; background:#f2f4f7; color:#15243a; font-size:14px; }
+  .wrap { max-width:1240px; margin:0 auto; padding:16px; }
+  h1 { font-size:21px; margin:4px 0 2px; color:#0C223A; }
+  h2 { font-size:15px; margin:18px 0 8px; color:#0C223A; }
+  .sub { color:#5a6b80; font-size:13px; margin-bottom:12px; }
+  a.tab { font-size:13px; color:#0C223A; margin-right:10px; }
+  .cards { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
+  .card { flex:1; min-width:170px; background:#fff; border:1px solid #dfe5ec; border-radius:10px; padding:10px 14px; border-top:4px solid #C89535; cursor:pointer; }
+  .card.red { border-top-color:#c0392b; } .card.green { border-top-color:#1c7a4a; } .card.grey { border-top-color:#8a97a6; }
+  .card .l { font-size:12px; color:#5a6b80; } .card .v { font-size:22px; font-weight:800; color:#0C223A; } .card .n { font-size:12px; color:#5a6b80; }
+  .card.on { outline:2px solid #0C223A; }
+  .pick { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .pick select, .pick input { font-family:inherit; font-size:14px; padding:8px 10px; border:1px solid #c9d2dd; border-radius:8px; }
+  .toolrow { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  button { font-family:inherit; font-size:13px; border-radius:8px; border:none; cursor:pointer; padding:7px 14px; }
+  .bprint { background:#1a3a5c; color:#fff; font-weight:700; }
+  .bpay { background:#1c7a4a; color:#fff; font-weight:700; } .bhold { background:#eef3f7; color:#15243a; border:1px solid #c9d2dd; }
+  .bundo { background:#fff; color:#a32d2d; border:1px solid #e3b4b4; } .bsave { background:#C89535; color:#fff; font-weight:700; } .bcancel { background:#eef3f7; border:1px solid #c9d2dd; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  #msg { font-size:13px; color:#1c7a4a; } #msg.err { color:#a32d2d; }
+  .grid { display:grid; grid-template-columns: 1fr 300px; gap:14px; align-items:start; }
+  @media (max-width:900px) { .grid { grid-template-columns:1fr; } }
+  table.main { width:100%; border-collapse:collapse; background:#fff; }
+  .main th, .main td { border:1px solid #dfe5ec; padding:5px 8px; vertical-align:top; }
+  .main thead th { background:#0C223A; color:#fff; font-size:12px; position:sticky; top:0; }
+  td.r { text-align:right; white-space:nowrap; } td.c { text-align:center; } td.n { white-space:nowrap; }
+  .tblwrap { overflow:auto; max-height:68vh; border:1px solid #dfe5ec; }
+  tr.over td { background:#fdf0ef; } tr.soon td { background:#fffbe9; } tr.paid td { color:#6c7a8c; } tr.hold td { background:#f0f0f0; }
+  .tag { display:inline-block; border-radius:6px; padding:1px 7px; font-size:11.5px; font-weight:700; white-space:nowrap; }
+  .tag.over { background:#f7dede; color:#a32d2d; } .tag.soon { background:#faeecd; color:#8a5a12; } .tag.ok { background:#e3f4ea; color:#1c7a4a; }
+  .tag.paid { background:#e3f4ea; color:#1c7a4a; } .tag.hold { background:#e4e7eb; color:#4a5568; } .tag.open { background:#e8f0f8; color:#1a3a5c; }
+  .small { font-size:11.5px; color:#5a6b80; }
+  .edit { background:#fff8ec; border:1px solid #d9b96a; border-radius:8px; padding:8px 10px; display:flex; gap:8px; flex-wrap:wrap; align-items:end; }
+  .edit label { display:block; font-size:11.5px; color:#5a6b80; margin-bottom:2px; }
+  .edit input { font-family:inherit; font-size:13px; padding:5px 8px; border:1px solid #c9d2dd; border-radius:6px; width:130px; }
+  .edit input.w { width:220px; }
+  .side { background:#fff; border:1px solid #dfe5ec; border-radius:10px; padding:10px 12px; }
+  .side .v { display:flex; justify-content:space-between; gap:6px; padding:6px 0; border-bottom:1px dashed #e6ebf1; cursor:pointer; font-size:13px; }
+  .side .v:hover { background:#f7f9fb; } .side .v b { color:#0C223A; }
+  .side .acct { font-size:11.5px; color:#5a6b80; }
+  details { background:#fff; border:1px solid #dfe5ec; border-radius:10px; padding:8px 12px; margin-top:14px; }
+  summary { cursor:pointer; font-weight:700; color:#a32d2d; }
+  .hint { background:#eef3f7; border-radius:8px; padding:8px 12px; font-size:12.5px; margin:8px 0; color:#3a4a5e; }
+  #printArea { display:none; }
+  @media print { body * { visibility:hidden; } #printArea, #printArea * { visibility:visible; } #printArea { display:block; position:absolute; left:0; top:0; width:100%; background:#fff; } }
+  .po { font-size:13px; color:#111; padding:6mm; }
+  .po table { width:100%; border-collapse:collapse; margin-top:6px; } .po th, .po td { border:1px solid #888; padding:3px 6px; font-size:12.5px; }
+  .po h3 { margin:12px 0 2px; font-size:14px; } .po .bank { font-size:12px; color:#333; }
+</style></head>
+<body><div class="wrap">
+  <div><a class="tab" href="/accounting">← บัญชีและบุคคล</a><a class="tab" href="/home">🏠 หน้าหลัก</a></div>
+  <h1>💰 เจ้าหนี้การค้า (AP) — โกดัง ML3</h1>
+  <div class="sub" id="gen">–</div>
+  <div class="hint">บิล 1 ใบ = ใบรับของ 1 ใบใน POS (ที่ระบุซัพ) · ยอด "ระบบ" = ต้นทุน×จำนวนที่รับ — ถ้าใบแจ้งหนี้จริงต่างกัน กรอกทับได้ในช่อง "ยอดใบแจ้งหนี้"
+    · ครบกำหนด = วันรับของ + เครดิตเทอมของซัพ · กด <b>💸 บันทึกจ่าย</b> เมื่อโอนแล้ว → บิลย้ายไปกลุ่ม "จ่ายแล้ว" (บันทึกถาวรใน Supabase) · ห้ามตัวเลขกำไร/ราคาขายในหน้านี้</div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="pick">
+    <select id="fst">
+      <option value="unpaid">ค้างจ่ายทั้งหมด</option>
+      <option value="over">เกินกำหนดแล้ว</option>
+      <option value="soon">ครบกำหนดใน 7 วัน</option>
+      <option value="hold">พักไว้ / มีปัญหา</option>
+      <option value="paid">จ่ายแล้ว</option>
+      <option value="old" id="optold">ก่อนเริ่มระบบ (ไม่นับค้าง)</option>
+      <option value="all">ทุกสถานะ</option>
+    </select>
+    <select id="fv" style="min-width:260px"><option value="">ทุกซัพพลายเออร์</option></select>
+    <input id="q" placeholder="ค้นหา: เลขใบแจ้งหนี้ / ชื่อซัพ / ผู้รับ / อ้างอิงโอน" style="flex:1;min-width:220px">
+  </div>
+  <div class="toolrow">
+    <button class="bprint" id="bprint">🖨 พิมพ์รายการที่แสดง (แยกตามซัพ + บัญชีโอน)</button>
+    <button class="bpay" id="bbulk" disabled>💸 บันทึกจ่ายที่ติ๊ก (0)</button>
+    <button class="bcancel" id="bbulkclr" style="display:none">✖ ล้างที่ติ๊ก</button>
+    <span id="cnt" class="small"></span>
+    <span id="msg"></span>
+  </div>
+  <div class="edit" id="bulkbox" style="display:none;margin:0 0 10px">
+    <div><b>จ่ายหลายใบพร้อมกัน</b><div class="small">ใช้เคลียร์บิลเก่า/บิลที่โอนรอบเดียวกัน — แต่ละใบจะถูกบันทึกด้วยยอดระบบของใบนั้น</div></div>
+    <div><label>วันที่จ่าย</label><input type="date" id="bk-date"></div>
+    <div><label>อ้างอิงการโอน (ใส่ครั้งเดียวใช้ทุกใบ)</label><input id="bk-ref" class="w" placeholder="เช่น โอน KBANK 22/08"></div>
+    <div><button class="bsave" id="bk-save">✅ บันทึกทั้งหมด</button> <button class="bcancel" id="bk-cancel">ยกเลิก</button></div>
+    <div class="small" id="bk-prog"></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="tblwrap"><table class="main"><thead><tr>
+        <th title="ติ๊กเพื่อจ่ายหลายใบพร้อมกัน">✔</th><th>วันรับของ</th><th>ซัพพลายเออร์</th><th>อ้างอิง / ใบแจ้งหนี้</th><th>ผู้รับ</th>
+        <th>ยอดระบบ</th><th>ยอดใบแจ้งหนี้</th><th>เครดิต</th><th>ครบกำหนด</th><th>สถานะ</th><th>จัดการ</th>
+      </tr></thead><tbody id="tb"></tbody></table></div>
+    </div>
+    <div class="side">
+      <b>ค้างจ่ายแยกตามซัพ</b> <span class="small">(กดชื่อเพื่อกรอง)</span>
+      <div id="vside"></div>
+    </div>
+  </div>
+
+  <details id="unbox"><summary id="unsum">⚠️ ใบรับของที่ไม่ระบุซัพพลายเออร์</summary>
+    <div class="hint" style="margin-top:8px">ใบพวกนี้<b>ยังเข้าระบบเจ้าหนี้ไม่ได้</b>เพราะตอนรับของไม่ได้เลือกบริษัท — แก้ใน OnePoint: เปิดใบรับของ → เลือกซัพพลายเออร์ → บันทึก แล้วจะเข้ามาเองในรอบถัดไป (ฝากย้ำทีมคลัง: เลือกซัพทุกครั้งตอนรับของ)</div>
+    <div class="tblwrap" style="max-height:40vh"><table class="main"><thead><tr>
+      <th>วันรับของ</th><th>อ้างอิง</th><th>ผู้รับ</th><th>สินค้าตัวอย่าง</th><th>รายการ</th><th>ยอดระบบ</th>
+    </tr></thead><tbody id="untb"></tbody></table></div>
+  </details>
+
+  <div id="printArea"></div>
+<script>
+var D = __DATA__;
+var ST = {};            // bill_id -> แถวจาก Supabase (สถานะจ่าย/ยอดจริง)
+var STATUS_OK = false;  // โหลดสถานะจาก API สำเร็จไหม (เปิดไฟล์ตรงๆ/นอกพอร์ทัล = โหลดไม่ได้)
+var EDITING = null;     // bill_id ที่กำลังเปิดฟอร์ม
+var FILTER_V = "";
+var BULK = {};          // bill_id ที่ติ๊กไว้เพื่อจ่ายพร้อมกัน (จำข้ามการกรอง/ค้นหา)
+var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); };
+var baht = function(n){ return "฿" + (Math.round(n||0)).toLocaleString("th-TH"); };
+var pad = function(n){ return (n<10?"0":"")+n; };
+function thd(iso){ if(!iso) return ""; var p = String(iso).slice(0,10).split("-"); return p.length===3 ? p[2]+"/"+p[1]+"/"+p[0].slice(2) : iso; }
+function addDays(iso, n){ var d = new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function daysBetween(a, b){ return Math.round((new Date(b+"T00:00:00") - new Date(a+"T00:00:00"))/86400000); }
+var TODAY = D.today, SOON = addDays(D.today, 7), AGO30 = addDays(D.today, -30);
+
+document.getElementById("gen").textContent = "รับของล่าสุดใน backup: " + D.lastImportTh + " · บิลขายล่าสุด " + D.lastBillTh
+  + " · ประมวลผล " + D.generatedTh + " · ติดตามหนี้ตั้งแต่ " + thd(D.start) + " (บิลก่อนหน้าอยู่กลุ่ม \"ก่อนเริ่มระบบ\") · อัปเดตอัตโนมัติทุกรอบระบบ";
+document.getElementById("optold").textContent = "ก่อนเริ่มระบบ " + thd(D.start) + " (ไม่นับค้าง)";
+
+// ---- สถานะของบิล (รวม D + ST) ----
+function info(b){
+  var s = ST[b.id] || {};
+  var amt = (s.invoice_amount != null && s.invoice_amount !== "") ? +s.invoice_amount : b.amount;
+  var st = s.status || "open";
+  var paid = st === "paid", hold = st === "hold";
+  var over = !paid && b.due < TODAY, soon = !paid && !over && b.due <= SOON;
+  return { s:s, amt:amt, st:st, paid:paid, hold:hold, over:over, soon:soon };
+}
+function visible(b){
+  var f = document.getElementById("fst").value, i = info(b);
+  if (f === "old") { if (!b.old) return false; }
+  else if (b.old && f !== "all") return false;          // บิลก่อนเริ่มระบบ ไม่ปนในค้างจ่าย/เกินกำหนด
+  if (f === "unpaid" && i.paid) return false;
+  if (f === "over" && !i.over) return false;
+  if (f === "soon" && !i.soon) return false;
+  if (f === "hold" && !i.hold) return false;
+  if (f === "paid" && !i.paid) return false;
+  if (FILTER_V && b.vid !== FILTER_V) return false;
+  var q = document.getElementById("q").value.trim().toLowerCase();
+  if (q) {
+    var hay = (b.vname + " " + b.ref + " " + b.by + " " + (i.s.invoice_no||"") + " " + (i.s.paid_ref||"") + " " + (i.s.note||"")).toLowerCase();
+    if (hay.indexOf(q) < 0) return false;
+  }
+  return true;
+}
+
+function renderCards(){
+  var un=0, unN=0, ov=0, ovN=0, so=0, soN=0, pd=0, pdN=0, hd=0, hdN=0;
+  D.bills.forEach(function(b){
+    var i = info(b);
+    if (i.paid) { if ((i.s.paid_date||"") >= AGO30) { pd += +i.s.paid_amount || i.amt; pdN++; } return; }
+    if (b.old) return;   // ก่อนเริ่มระบบ ไม่นับค้าง
+    un += i.amt; unN++;
+    if (i.over) { ov += i.amt; ovN++; }
+    if (i.soon) { so += i.amt; soN++; }
+    if (i.hold) { hd += i.amt; hdN++; }
+  });
+  var f = document.getElementById("fst").value;
+  var c = [
+    ["unpaid","","ค้างจ่ายรวม",baht(un),unN+" ใบ"],
+    ["over","red","เกินกำหนดแล้ว",baht(ov),ovN+" ใบ — ควรจ่ายก่อน"],
+    ["soon","","ครบกำหนดใน 7 วัน",baht(so),soN+" ใบ"],
+    ["hold","grey","พักไว้ / มีปัญหา",baht(hd),hdN+" ใบ"],
+    ["paid","green","จ่ายแล้ว 30 วัน",baht(pd),pdN+" ใบ"],
+  ];
+  document.getElementById("cards").innerHTML = c.map(function(x){
+    return '<div class="card '+x[1]+(f===x[0]?' on':'')+'" data-f="'+x[0]+'"><div class="l">'+x[2]+'</div><div class="v">'+x[3]+'</div><div class="n">'+x[4]+'</div></div>';
+  }).join("");
+  document.querySelectorAll(".card").forEach(function(el){ el.onclick = function(){ document.getElementById("fst").value = el.dataset.f; render(); }; });
+}
+
+function renderSide(){
+  var agg = {};
+  D.bills.forEach(function(b){ var i = info(b); if (i.paid || b.old) return;
+    var a = agg[b.vid] = agg[b.vid] || { name:b.vname, amt:0, n:0, over:0 };
+    a.amt += i.amt; a.n++; if (i.over) a.over++; });
+  var list = Object.keys(agg).map(function(k){ return [k, agg[k]]; }).sort(function(a,b){ return b[1].amt - a[1].amt; });
+  var sel = document.getElementById("fv"), keep = sel.value;
+  sel.innerHTML = '<option value="">ทุกซัพพลายเออร์</option>' + list.map(function(x){ return '<option value="'+esc(x[0])+'">'+esc(x[1].name)+' ('+x[1].n+' ใบ · '+baht(x[1].amt)+')</option>'; }).join("");
+  sel.value = keep; if (sel.selectedIndex < 0) sel.value = "";
+  document.getElementById("vside").innerHTML = list.length ? list.map(function(x){
+    var v = D.vendors[x[0]] || {};
+    var acct = v.account ? "💳 " + esc(v.bank) + " " + esc(v.account) : (v.pay ? "💳 " + esc(v.pay) : '<span style="color:#a32d2d">ไม่มีข้อมูลบัญชีโอน</span>');
+    return '<div class="v" data-v="'+esc(x[0])+'"><div><b>'+esc(x[1].name)+'</b>'+(x[1].over?' <span class="tag over">เกิน '+x[1].over+'</span>':'')+'<div class="acct">'+acct+' · เครดิต '+(v.credit||0)+' วัน</div></div><div style="text-align:right;white-space:nowrap"><b>'+baht(x[1].amt)+'</b><div class="acct">'+x[1].n+' ใบ</div></div></div>';
+  }).join("") : '<div class="small" style="padding:8px 0">— ไม่มียอดค้างจ่าย —</div>';
+  document.querySelectorAll("#vside .v").forEach(function(el){ el.onclick = function(){ FILTER_V = (FILTER_V === el.dataset.v) ? "" : el.dataset.v; document.getElementById("fv").value = FILTER_V; render(); }; });
+}
+
+function rowHtml(b){
+  var i = info(b), s = i.s, cls = i.paid ? "paid" : (i.hold ? "hold" : (i.over ? "over" : (i.soon ? "soon" : "")));
+  var dueTag = i.paid ? '' : (i.over ? '<span class="tag over">เกิน '+daysBetween(b.due,TODAY)+' วัน</span>' : (i.soon ? '<span class="tag soon">อีก '+daysBetween(TODAY,b.due)+' วัน</span>' : '<span class="tag ok">อีก '+daysBetween(TODAY,b.due)+' วัน</span>'));
+  var stTag = i.paid ? '<span class="tag paid">จ่ายแล้ว</span><div class="small">'+thd(s.paid_date)+' '+baht(s.paid_amount)+(s.paid_ref?'<br>'+esc(s.paid_ref):'')+'</div>'
+           : (i.hold ? '<span class="tag hold">พักไว้</span>' : '<span class="tag open">ค้างจ่าย</span>');
+  var act = i.paid ? '<button class="bundo" data-a="undo" data-id="'+esc(b.id)+'">↩ ยกเลิกการจ่าย</button>'
+          : '<button class="bpay" data-a="pay" data-id="'+esc(b.id)+'">💸 บันทึกจ่าย</button> '
+            + (i.hold ? '<button class="bhold" data-a="open" data-id="'+esc(b.id)+'">▶ กลับเป็นค้าง</button>' : '<button class="bhold" data-a="hold" data-id="'+esc(b.id)+'">⏸ พักไว้</button>');
+  var inv = (s.invoice_amount != null && s.invoice_amount !== "") ? '<b>'+baht(s.invoice_amount)+'</b>' : '<span class="small">= ระบบ</span>';
+  var h = '<tr class="'+cls+'" data-id="'+esc(b.id)+'">'
+    + '<td class="c">'+(i.paid ? '' : '<input type="checkbox" class="bk"'+(BULK[b.id]?' checked':'')+'>')+'</td>'
+    + '<td class="n">'+thd(b.date)+' <span class="small">'+esc(b.time)+'</span>'+(b.old?'<div class="small">ก่อนเริ่มระบบ</div>':'')+'</td>'
+    + '<td>'+esc(b.vname)+(b.pay?'<div class="small">'+esc(b.pay)+'</div>':'')+'</td>'
+    + '<td>'+esc(s.invoice_no || b.ref || "-")+(s.note?'<div class="small">📝 '+esc(s.note)+'</div>':'')+'</td>'
+    + '<td class="c">'+esc(b.by)+'<div class="small">'+b.items+' รายการ</div></td>'
+    + '<td class="r">'+baht(b.amount)+'</td>'
+    + '<td class="r">'+inv+'</td>'
+    + '<td class="c">'+b.credit+' วัน</td>'
+    + '<td class="n">'+thd(b.due)+'<br>'+dueTag+'</td>'
+    + '<td class="c">'+stTag+'</td>'
+    + '<td class="n">'+act+'</td></tr>';
+  if (EDITING === b.id) {
+    h += '<tr><td colspan="11"><div class="edit" data-id="'+esc(b.id)+'">'
+      + '<div><label>วันที่จ่าย</label><input type="date" class="e-date" value="'+esc(s.paid_date||TODAY)+'"></div>'
+      + '<div><label>ยอดที่จ่าย (บาท)</label><input type="number" step="0.01" class="e-amt" value="'+(s.paid_amount!=null&&s.paid_amount!==""?s.paid_amount:Math.round(i.amt*100)/100)+'"></div>'
+      + '<div><label>อ้างอิงการโอน / เช็ค</label><input class="e-ref w" value="'+esc(s.paid_ref||"")+'" placeholder="เช่น โอน KBANK 22/08 14:30"></div>'
+      + '<div><label>เลขที่ใบแจ้งหนี้</label><input class="e-inv" value="'+esc(s.invoice_no||(b.ref||"").split(" ")[0])+'"></div>'
+      + '<div><label>ยอดตามใบแจ้งหนี้</label><input type="number" step="0.01" class="e-invamt" value="'+(s.invoice_amount!=null?s.invoice_amount:"")+'" placeholder="'+Math.round(b.amount)+'"></div>'
+      + '<div><label>หมายเหตุ</label><input class="e-note w" value="'+esc(s.note||"")+'"></div>'
+      + '<div><button class="bsave" data-a="save" data-id="'+esc(b.id)+'">✅ บันทึกว่าจ่ายแล้ว</button> <button class="bcancel" data-a="cancel">ยกเลิก</button></div>'
+      + '</div></td></tr>';
+  }
+  return h;
+}
+
+function render(){
+  renderCards(); renderSide();
+  var f = document.getElementById("fst").value;
+  var rows = D.bills.filter(visible);
+  rows.sort(function(a,b){
+    if (f === "paid") return ((ST[b.id]||{}).paid_date||"").localeCompare((ST[a.id]||{}).paid_date||"");
+    return a.due.localeCompare(b.due) || a.date.localeCompare(b.date);
+  });
+  document.getElementById("tb").innerHTML = rows.map(rowHtml).join("") || '<tr><td colspan="11" class="c small" style="padding:18px">— ไม่มีรายการ —</td></tr>';
+  var tot = rows.reduce(function(a,b){ return a + info(b).amt; }, 0);
+  document.getElementById("cnt").textContent = "แสดง " + rows.length + " ใบ · รวม " + baht(tot) + (STATUS_OK ? "" : " · ⚠️ โหลดสถานะการจ่ายไม่ได้ (เปิดผ่านพอร์ทัลเท่านั้น)");
+  document.getElementById("fv").value = FILTER_V;
+  updateBulk();
+}
+function bulkIds(){ return Object.keys(BULK).filter(function(k){ return BULK[k] && !(ST[k] && ST[k].status === "paid"); }); }
+function updateBulk(){
+  var n = bulkIds().length, b = document.getElementById("bbulk");
+  b.textContent = "💸 บันทึกจ่ายที่ติ๊ก (" + n + ")"; b.disabled = !n;
+  document.getElementById("bbulkclr").style.display = n ? "inline-block" : "none";
+}
+document.getElementById("tb").addEventListener("change", function(e){
+  if (!e.target.classList.contains("bk")) return;
+  BULK[e.target.closest("tr").dataset.id] = e.target.checked; updateBulk();
+});
+document.getElementById("bbulkclr").onclick = function(){ BULK = {}; document.getElementById("bulkbox").style.display = "none"; render(); };
+document.getElementById("bbulk").onclick = function(){
+  document.getElementById("bk-date").value = document.getElementById("bk-date").value || TODAY;
+  document.getElementById("bulkbox").style.display = "flex";
+  document.getElementById("bk-prog").textContent = bulkIds().length + " ใบ · รวม " + baht(bulkIds().reduce(function(a,id){ var b = D.bills.filter(function(x){return x.id===id;})[0]; return a + (b ? info(b).amt : 0); }, 0));
+};
+document.getElementById("bk-cancel").onclick = function(){ document.getElementById("bulkbox").style.display = "none"; };
+document.getElementById("bk-save").onclick = function(){
+  var ids = bulkIds(), date = document.getElementById("bk-date").value, ref = document.getElementById("bk-ref").value;
+  if (!date) { say("⚠️ ใส่วันที่จ่ายก่อน", true); return; }
+  if (!ids.length) { say("⚠️ ยังไม่ได้ติ๊กบิล", true); return; }
+  var btn = this, prog = document.getElementById("bk-prog"), done = 0, fail = 0;
+  btn.disabled = true;
+  (function next(){
+    if (!ids.length) { btn.disabled = false; BULK = {}; document.getElementById("bulkbox").style.display = "none";
+      say("✅ บันทึกจ่ายแล้ว " + done + " ใบ" + (fail ? " · ล้มเหลว " + fail + " ใบ (ลองใหม่)" : ""), !!fail); render(); return; }
+    var id = ids.shift(), b = D.bills.filter(function(x){ return x.id === id; })[0];
+    if (!b) { fail++; next(); return; }
+    prog.textContent = "กำลังบันทึก… " + (done + fail + 1) + "/" + (done + fail + ids.length + 1);
+    post({ bill_id:id, status:"paid", paid_date:date, paid_amount:info(b).amt, paid_ref:ref })
+      .then(function(j){ ST[id] = j.row; done++; }).catch(function(){ fail++; BULK[id] = true; }).then(next);
+  })();
+};
+
+// ---- ปุ่มในตาราง (event delegation) — ห้าม alert/confirm/prompt ใช้ข้อความใน #msg ----
+function say(t, err){ var m = document.getElementById("msg"); m.textContent = t; m.className = err ? "err" : ""; if (!err) setTimeout(function(){ if (m.textContent===t) m.textContent=""; }, 5000); }
+function post(body){
+  return fetch("/api/ap/update", { method:"POST", credentials:"same-origin", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) })
+    .then(function(r){ return r.json().then(function(j){ if (!r.ok || j.error) throw new Error(j.error || ("HTTP "+r.status)); return j; }); });
+}
+document.getElementById("tb").addEventListener("click", function(e){
+  var btn = e.target.closest("button"); if (!btn) return;
+  var a = btn.dataset.a, id = btn.dataset.id;
+  if (a === "pay") { EDITING = id; render(); return; }
+  if (a === "cancel") { EDITING = null; render(); return; }
+  if (a === "hold" || a === "open" || a === "undo") {
+    btn.disabled = true;
+    post({ bill_id:id, status: a === "hold" ? "hold" : "open" }).then(function(j){ ST[id] = j.row; EDITING = null; say(a==="undo" ? "↩ ยกเลิกการจ่ายแล้ว — กลับเป็นค้างจ่าย" : (a==="hold" ? "⏸ พักบิลไว้แล้ว" : "▶ กลับเป็นค้างจ่ายแล้ว")); render(); })
+      .catch(function(er){ btn.disabled = false; say("⚠️ บันทึกไม่สำเร็จ: " + er.message, true); });
+    return;
+  }
+  if (a === "save") {
+    var box = btn.closest(".edit");
+    var body = { bill_id:id, status:"paid",
+      paid_date: box.querySelector(".e-date").value, paid_amount: box.querySelector(".e-amt").value,
+      paid_ref: box.querySelector(".e-ref").value, invoice_no: box.querySelector(".e-inv").value,
+      invoice_amount: box.querySelector(".e-invamt").value, note: box.querySelector(".e-note").value };
+    if (!body.paid_date) { say("⚠️ ใส่วันที่จ่ายก่อน", true); return; }
+    if (!(+body.paid_amount > 0)) { say("⚠️ ยอดที่จ่ายต้องมากกว่า 0", true); return; }
+    btn.disabled = true;
+    post(body).then(function(j){ ST[id] = j.row; EDITING = null; say("✅ บันทึกจ่ายแล้ว " + baht(body.paid_amount)); render(); })
+      .catch(function(er){ btn.disabled = false; say("⚠️ บันทึกไม่สำเร็จ: " + er.message, true); });
+  }
+});
+
+// ---- พิมพ์: รายการที่แสดงอยู่ แยกตามซัพ + บัญชีโอน (ยื่นให้ผู้อนุมัติ/ทำจ่าย) ----
+document.getElementById("bprint").onclick = function(){
+  var rows = D.bills.filter(visible).sort(function(a,b){ return a.vname.localeCompare(b.vname,"th") || a.due.localeCompare(b.due); });
+  if (!rows.length) { say("⚠️ ไม่มีรายการให้พิมพ์", true); return; }
+  var byV = {}; rows.forEach(function(b){ (byV[b.vid] = byV[b.vid] || []).push(b); });
+  var today = new Date().toLocaleDateString("th-TH", { day:"numeric", month:"long", year:"numeric" });
+  var h = ['<div class="po"><div style="display:flex;justify-content:space-between;border-bottom:3px double #333;padding-bottom:6px"><div><b style="font-size:16px">บริษัท เลิฟเพ็ท โกลบอลพลัส จำกัด</b><br>รายการเจ้าหนี้การค้า — โกดัง ML3 · '
+    + esc(document.getElementById("fst").selectedOptions[0].textContent) + '</div><div style="text-align:right">วันที่พิมพ์ ' + today + '<br>' + rows.length + ' ใบ · รวม <b>' + baht(rows.reduce(function(a,b){return a+info(b).amt;},0)) + '</b></div></div>'];
+  var grand = 0;
+  Object.keys(byV).forEach(function(vid){
+    var v = D.vendors[vid] || {}, list = byV[vid], sub = 0;
+    h.push('<h3>' + esc(v.name||list[0].vname) + '</h3><div class="bank">' + (v.account ? '💳 โอน ' + esc(v.bank) + ' เลขบัญชี ' + esc(v.account) : (v.pay ? '💳 ' + esc(v.pay) : '💳 (ไม่มีข้อมูลบัญชีโอน)')) + (v.tel ? ' · ☎ ' + esc(v.tel) : '') + ' · เครดิต ' + (v.credit||0) + ' วัน</div>');
+    h.push('<table><thead><tr><th>วันรับของ</th><th>อ้างอิง / ใบแจ้งหนี้</th><th>ครบกำหนด</th><th>ยอด</th><th>สถานะ</th></tr></thead><tbody>');
+    list.forEach(function(b){ var i = info(b); sub += i.amt;
+      h.push('<tr><td>' + thd(b.date) + '</td><td>' + esc(i.s.invoice_no || b.ref || "-") + '</td><td>' + thd(b.due) + (i.over ? ' (เกิน ' + daysBetween(b.due,TODAY) + ' วัน)' : '') + '</td><td style="text-align:right">' + baht(i.amt) + '</td><td>' + (i.paid ? 'จ่ายแล้ว ' + thd(i.s.paid_date) : (i.hold ? 'พักไว้' : 'ค้างจ่าย')) + '</td></tr>'); });
+    grand += sub;
+    h.push('<tr><td colspan="3" style="text-align:right"><b>รวม ' + esc(v.name||"") + '</b></td><td style="text-align:right"><b>' + baht(sub) + '</b></td><td></td></tr></tbody></table>');
+  });
+  h.push('<p style="text-align:right;font-size:14px"><b>รวมทั้งสิ้น ' + baht(grand) + '</b></p>');
+  h.push('<div style="display:flex;justify-content:space-between;margin-top:36px;text-align:center"><div style="width:31%"><div style="border-top:1px dotted #333;padding-top:4px">ผู้จัดทำ (บัญชี)</div></div><div style="width:31%"><div style="border-top:1px dotted #333;padding-top:4px">ผู้ตรวจสอบ</div></div><div style="width:31%"><div style="border-top:1px dotted #333;padding-top:4px">ผู้อนุมัติจ่าย</div></div></div></div>');
+  document.getElementById("printArea").innerHTML = h.join("");
+  window.print();
+};
+
+// ---- ใบรับของไม่ระบุซัพ ----
+(function(){
+  var u = D.unassigned || [];
+  document.getElementById("unsum").textContent = "⚠️ ใบรับของที่ไม่ระบุซัพพลายเออร์ " + u.length + " ใบ · " + baht(u.reduce(function(a,x){return a+x.amount;},0)) + " (ย้อนหลัง " + D.unassignedDays + " วัน) — ยังไม่เข้าระบบเจ้าหนี้ กดดู";
+  document.getElementById("untb").innerHTML = u.map(function(x){
+    return '<tr><td class="n">'+thd(x.date)+' <span class="small">'+esc(x.time)+'</span></td><td>'+esc(x.ref||x.remarks||"-")+'</td><td class="c">'+esc(x.by)+'</td><td class="small">'+esc(x.sample)+'</td><td class="c">'+x.items+'</td><td class="r">'+baht(x.amount)+'</td></tr>';
+  }).join("") || '<tr><td colspan="6" class="c small">— ไม่มี —</td></tr>';
+})();
+
+document.getElementById("fst").onchange = render;
+document.getElementById("fv").onchange = function(){ FILTER_V = this.value; render(); };
+document.getElementById("q").oninput = render;
+
+// ---- โหลดสถานะจาก Supabase ผ่าน worker ----
+render();
+fetch("/api/ap", { credentials:"same-origin" }).then(function(r){ return r.json(); }).then(function(rows){
+  if (!Array.isArray(rows)) throw new Error(rows && rows.error || "bad");
+  rows.forEach(function(x){ ST[x.bill_id] = x; });
+  STATUS_OK = true; render();
+}).catch(function(){ STATUS_OK = false; render(); });
+</script>
+</div></body></html>
