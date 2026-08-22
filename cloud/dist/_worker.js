@@ -452,7 +452,6 @@ function accountingPage(sess, env) {
     `<a class="tile" href="/accounting-ap"><span class="badge on">ใช้งานได้</span><div class="ic">💰</div><div class="t">เจ้าหนี้การค้า (AP)</div><div class="d">บิลค้างจ่ายจากใบรับของ · ครบกำหนดตามเครดิตซัพ · บันทึกจ่าย · บัญชีโอน · พิมพ์รายการทำจ่าย</div><div class="go">เปิดดู →</div></a>`,
     `<a class="tile" href="/accounting-daily"><span class="badge on">ใช้งานได้</span><div class="ic">🧾</div><div class="t">ใบปิดยอดรายกะ</div><div class="d">เงินตั้งต้น · เงินสด/โอน/เครดิต แยกช่องทาง · ส่วนต่างลิ้นชักทุกกะ ทั้ง 2 สาขา</div><div class="go">เปิดดู →</div></a>`,
     `<a class="tile" href="${esc(attUrl)}" target="_blank" rel="noopener"><span class="badge on">ใช้งานได้</span><div class="ic">⏰</div><div class="t">ลงเวลาเข้า-ออกงาน</div><div class="d">บันทึกเวลาทำงานพนักงาน · เปิดแอปลงเวลา</div><div class="go">เปิดแอป →</div></a>`,
-    `<a class="tile soon" href="#"><span class="badge dev">กำลังพัฒนา</span><div class="ic">📱</div><div class="t">ค่าคอมร้านมือถือ</div><div class="d">คำนวณค่าคอมมิชชั่นรายเดือน สาขามือถือ (ML1)</div><div class="go">เร็วๆ นี้</div></a>`,
   ];
   const brs = sessBranches(sess);
   const brLabel = brs.includes("*") ? "ทุกสาขา" : brs.map(branchName).join(" · ");
