@@ -17,7 +17,7 @@ const ROLE_LABEL = { owner:"เจ้าของ · ผู้บริหาร
 // การ์ดแผนก (เรียงตามลำดับที่จะแสดง)
 const TILES = [
   { key:"purchasing", icon:"🛒", title:"งานจัดซื้อ",     desc:"ABC · จุดสั่งซื้อ · เติมสต๊อก · จัดการตัวคูณ", live:true },
-  { key:"accounting", icon:"💰", title:"บัญชีและบุคคล",   desc:"บัญชี · การเงิน · งานบุคคล · ลงเวลา",     live:false },
+  { key:"accounting", icon:"💰", title:"บัญชีและบุคคล",   desc:"เจ้าหนี้การค้า (AP) · ใบปิดยอดรายกะ · ลงเวลา", live:true },
   { key:"sales",      icon:"🧾", title:"ขายปลีก · ขายส่ง", desc:"ยอดขาย · ลูกค้า · ใบเสร็จ",                live:false },
   { key:"warehouse",  icon:"📦", title:"คลังและจัดส่ง",   desc:"LSMG Logistic · เส้นทาง · จัดส่ง · เก็บเงิน", live:true },
   { key:"marketing",  icon:"📣", title:"งานการตลาด",     desc:"ใบสั่งงานโปรโมชัน · สถานะงาน · แคมเปญ",     live:true },
